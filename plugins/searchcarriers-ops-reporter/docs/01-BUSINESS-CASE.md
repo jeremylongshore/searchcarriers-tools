@@ -45,7 +45,7 @@ The primary value is eliminating the assembly step. A compliance analyst spendin
 | Embedded risk scores | Yes (from Risk Engine pipeline) | No | No | Separate module | No |
 | Side-by-side carrier comparison | Yes (2-5 carriers) | Manual spreadsheet | No | Limited | No |
 | Multi-format export (JSON, CSV, MD) | Yes | Manual conversion | CSV only | API/JSON | CSV/PDF |
-| CLI/terminal workflow | Yes (Claude Code native) | No | No | No | No |
+| CLI/terminal workflow | Yes (MCP-native) | No | No | No | No |
 | Pipeline integration | Yes (auto-consumes Carrier Intel + Risk Engine) | No | Standalone | Standalone | Standalone |
 | Customizable report sections | Planned (v0.2) | Manual template editing | No | Limited | Yes |
 | Current data (nightly FMCSA sync) | Yes (on-demand API) | No (point-in-time snapshots) | Nightly batch | On-demand | Daily batch |

@@ -1,6 +1,6 @@
 # SearchCarriers Tools
 
-**Evidence-driven motor carrier operations for Claude Code and MCP clients.**
+**Evidence-driven motor carrier operations for Grok, Claude, and MCP clients.**
 
 Search, source, qualify, monitor, and reconcile motor carriers directly from
 your terminal. Five plugins, fourteen focused skills, and seven composed
@@ -26,11 +26,17 @@ Every package also includes its own `docs/ONE-PAGER.md` and canonical
 white-glove `docs/ONE-PAGER.pdf`, linked directly from that package's
 `SKILL.md`.
 
-Open Claude Code in this repo and say:
+Open Grok Build, Claude Code, or another MCP-capable client in this repo and say:
 
     Walk me through getting started with SearchCarriers
 
 Or paste the repo URL into any LLM and ask it to help you set up.
+
+The runtime is model-agnostic. Grok Build, Claude Code, and other MCP-capable
+clients can invoke the same five provider-neutral MCP servers from the root
+`.mcp.json`; the servers contain no model-provider SDK. See
+**[MODEL-COMPATIBILITY.md](MODEL-COMPATIBILITY.md)** for the tested boundary and
+the separate hosted Grok Bot deployment requirement.
 
 ---
 
@@ -49,7 +55,18 @@ Set your API key:
 export SEARCHCARRIERS_API_KEY="your_id|your_token"
 ```
 
-Then try your first lookup in Claude Code:
+Then choose a model client:
+
+```bash
+# Grok Build discovers the project .mcp.json automatically
+grok inspect
+grok mcp doctor searchcarriers-carrier-intel
+
+# Claude Code also discovers the project .mcp.json
+claude
+```
+
+Try your first lookup:
 
 ```
 /sc-lookup JB Hunt

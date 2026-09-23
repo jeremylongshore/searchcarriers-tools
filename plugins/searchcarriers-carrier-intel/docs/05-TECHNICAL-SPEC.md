@@ -306,6 +306,12 @@ Test the tier check logic without hitting the API:
 
 ## Deployment
 
+> **Multi-client path:** From the repository root, run `./scripts/setup-dev.sh`,
+> export `SEARCHCARRIERS_API_KEY`, and let Grok Build, Claude Code, or another
+> MCP client load the root `.mcp.json`. The client-specific copy steps below
+> describe optional Claude plugin packaging. See
+> [`MODEL-COMPATIBILITY.md`](../../../MODEL-COMPATIBILITY.md).
+
 ### Installation
 
 1. Copy the `searchcarriers-carrier-intel/` directory into your Claude Code plugins location:

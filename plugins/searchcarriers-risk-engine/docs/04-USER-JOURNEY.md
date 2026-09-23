@@ -15,7 +15,7 @@
 - [ ] API key set: `export SEARCHCARRIERS_API_KEY="your_id|your_token"`
 - [ ] Carrier Intel plugin installed (Risk Engine depends on it for data)
 - [ ] Risk Engine plugin installed -- configure in `.mcp.json` or copy to plugins directory
-- [ ] Claude Code with MCP support
+- [ ] Grok Build, Claude Code, or another MCP-capable client
 
 ## Step-by-Step Walkthrough
 
@@ -28,9 +28,9 @@ What's the risk score for DOT 3456789?
 ```
 
 **What happens behind the scenes:**
-1. Claude recognizes this as a risk assessment request
-2. Claude calls Carrier Intel's `carrier_profile(dot_number="3456789")` to fetch carrier data
-3. Claude passes the carrier data to Risk Engine's `risk_score(dot_number="3456789", carrier_data={...})`
+1. the MCP client recognizes this as a risk assessment request
+2. the MCP client calls Carrier Intel's `carrier_profile(dot_number="3456789")` to fetch carrier data
+3. the MCP client passes the carrier data to Risk Engine's `risk_score(dot_number="3456789", carrier_data={...})`
 4. Risk Engine normalizes the data, computes weighted scores across 4 dimensions, classifies the tier
 
 **Expected output:**
@@ -71,7 +71,7 @@ Run an insurance check on DOT 3456789
 ```
 
 **What happens behind the scenes:**
-1. Claude calls `insurance_check` with the carrier data already in context (no additional API call needed)
+1. the MCP client calls `insurance_check` with the carrier data already in context (no additional API call needed)
 2. Risk Engine parses insurance records, checks each policy status, coverage amounts, and expiration dates
 3. Returns structured assessment
 
@@ -161,7 +161,7 @@ Vet DOT 3456789 with minimum cargo insurance of $250,000
 ```
 
 **What happens behind the scenes:**
-1. Claude calls `qualification_reports` for the named policy when it exists in
+1. the MCP client calls `qualification_reports` for the named policy when it exists in
    SearchCarriers, or calls `vetting_check` with the complete approved rule set.
 2. Risk Engine preserves each observed value, threshold, and missing field.
 3. It returns the upstream or caller-policy verdict with per-rule evidence.
@@ -350,7 +350,7 @@ set supplied to `vetting_check`.
 A: LOW confidence means less than 50% of the expected data fields were available for scoring. This typically happens with new carriers, very small carriers, or carriers with incomplete FMCSA filings. The risk score still computes, but missing data is treated as a risk factor (absence of data is worse than known data). Take LOW confidence scores with extra scrutiny.
 
 **Q: Does Risk Engine store any data?**
-A: No. Risk Engine is completely stateless. Carrier data enters as function arguments, gets scored, and the result is returned. Nothing is cached, logged to disk, or persisted. Your carrier vetting data stays in your Claude Code session.
+A: No. Risk Engine is completely stateless. Carrier data enters as function arguments, gets scored, and the result is returned. Nothing is cached, logged to disk, or persisted. Your carrier vetting data stays in your selected model-client session.
 
 **Q: Why does `vetting_check` require Pro+ when other tools are Pro?**
 A: `vetting_check` supports configurable rules, which is an enterprise feature. Custom qualification criteria (different insurance minimums, OOS thresholds, authority age requirements) are how organizations standardize vetting across their teams. The Pro tools give you scores and assessments; Pro+ gives you configurable policy enforcement.

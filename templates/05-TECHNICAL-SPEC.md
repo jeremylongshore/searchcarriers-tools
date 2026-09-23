@@ -57,5 +57,5 @@ pydantic>=2.0
 
 1. Copy plugin directory to `.claude/plugins/`
 2. Set API key in environment
-3. Restart Claude Code
+3. Restart the MCP client
 4. Verify: `/sc-{command} test`

@@ -14,7 +14,7 @@
 - [ ] SearchCarriers account (Free tier or above) -- sign up at [searchcarriers.com](https://searchcarriers.com)
 - [ ] API key generated at [searchcarriers.com/settings/api-tokens](https://searchcarriers.com/settings/api-tokens)
 - [ ] API key set in environment: `export SEARCHCARRIERS_API_KEY="your_id|your_token"`
-- [ ] Claude Code installed with MCP support
+- [ ] Grok Build, Claude Code, or another MCP-capable client installed
 - [ ] Plugin installed: copy `searchcarriers-carrier-intel/` to `.claude/plugins/` or configure in `.mcp.json`
 
 ## Step-by-Step Walkthrough
@@ -28,10 +28,10 @@ Sarah has a new carrier requesting to haul a load. She knows the name: Werner En
 ```
 
 **What happens behind the scenes:**
-1. Claude invokes `carrier_lookup` with `search_term="Werner Enterprises"`
+1. the MCP client invokes `carrier_lookup` with `search_term="Werner Enterprises"`
 2. The MCP server detects this is a name (not DOT/MC/VIN), uses `superSearchTerm`
 3. API call: `GET /api/v3/search?superSearchTerm=Werner+Enterprises`
-4. Results returned, formatted by Claude
+4. Results returned, formatted by the MCP client
 
 **Expected output:**
 
@@ -71,7 +71,7 @@ Sarah needs the complete picture -- authorities and insurance -- before she can 
 ```
 
 **What happens behind the scenes:**
-1. Claude invokes `carrier_profile` with `dot_number="69494"`
+1. the MCP client invokes `carrier_profile` with `dot_number="69494"`
 2. MCP server makes one field-selected API call:
    - `GET /api/v3/company/69494?fields=contact,safety,authorities,insurance,...`
 3. Selected nested sections are returned as one profile
@@ -135,7 +135,7 @@ Look up related companies for DOT 3891456 using shared equipment
 ```
 
 **What happens behind the scenes:**
-1. Claude invokes `entity_map` with `dot_number="3891456"`
+1. the MCP client invokes `entity_map` with `dot_number="3891456"`
 2. MCP server checks tier: user must be Pro or above
 3. API calls: `GET /company/3891456/equipment` to get VINs, then `GET /search/by-vin/` per VIN
 4. Results mapped into a relationship network
@@ -198,7 +198,7 @@ Show me the fleet summary for DOT 27021
 ```
 
 **What happens behind the scenes:**
-1. Claude invokes `fleet_summary` with `dot_number="27021"`
+1. the MCP client invokes `fleet_summary` with `dot_number="27021"`
 2. MCP server makes two API calls:
    - `GET /company/27021/equipment` (detailed equipment with VIN, make, model)
    - `GET /company/27021/vehicles` (simplified vehicle list)

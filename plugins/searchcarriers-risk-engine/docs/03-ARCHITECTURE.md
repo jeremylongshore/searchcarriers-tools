@@ -25,11 +25,11 @@ Risk Engine is the **ANALYSIS** stage of the SearchCarriers stackable pipeline. 
   (data source)                 JSON output                    JSON output
 ```
 
-**Upstream**: Carrier Intel provides the raw carrier data. In the standard pipeline flow, Claude calls Carrier Intel first (`carrier_profile`), then passes the structured JSON to Risk Engine tools. Risk Engine does not call the SearchCarriers API directly -- it operates on data, not endpoints.
+**Upstream**: Carrier Intel provides the raw carrier data. In the standard pipeline flow, the MCP client calls Carrier Intel first (`carrier_profile`), then passes the structured JSON to Risk Engine tools. Risk Engine does not call the SearchCarriers API directly -- it operates on data, not endpoints.
 
 **Downstream consumers**: Ops Reporter reads Risk Engine output to generate formatted vetting reports, risk summaries, and compliance documents. The risk score, vetting verdict, insurance assessment, and compliance posture all feed into report templates.
 
-**Standalone usage**: Risk Engine can accept a DOT number directly. When it receives a DOT instead of pre-fetched carrier data, Claude orchestrates the Carrier Intel lookup automatically before running the risk analysis. From the user's perspective, they just say "score DOT 69494" and get a result.
+**Standalone usage**: Risk Engine can accept a DOT number directly. When it receives a DOT instead of pre-fetched carrier data, the MCP client orchestrates the Carrier Intel lookup automatically before running the risk analysis. From the user's perspective, they just say "score DOT 69494" and get a result.
 
 ## Component Design
 
@@ -40,7 +40,7 @@ Risk Engine is the **ANALYSIS** stage of the SearchCarriers stackable pipeline. 
 | **Vetting Rules Module** | `scripts/vetting.py` (planned) | Rule evaluation engine. Accepts carrier data and threshold configuration, evaluates each rule, returns verdict with per-rule results. Stateless and configurable. |
 | **Data Normalizer** | `scripts/normalize.py` (planned) | Transforms raw Carrier Intel JSON into a flat, consistent structure that scoring and vetting modules can consume. Handles missing fields, type coercion, and default values. |
 | **Commands** | `commands/` (planned) | Slash command definitions mapping user input to MCP tool calls. `/sc-risk` for risk_score, `/sc-vet` for vetting_check. |
-| **Embedded Skill** | `skills/` (planned) | Teaches Claude how to interpret risk scores, when to escalate REVIEW verdicts, and how to present risk assessments to freight professionals. |
+| **Embedded Skill** | `skills/` (planned) | Teaches the MCP client how to interpret risk scores, when to escalate REVIEW verdicts, and how to present risk assessments to freight professionals. |
 
 ## Data Flow
 
@@ -50,7 +50,7 @@ Risk Engine is the **ANALYSIS** stage of the SearchCarriers stackable pipeline. 
 User: "What's the risk on DOT 69494?"
   |
   v
-Claude identifies this as a risk assessment request
+the MCP client identifies this as a risk assessment request
   |
   +--> Stage 1: Carrier Intel (if carrier data not already in context)
   |    carrier_profile(dot=69494)
@@ -85,7 +85,7 @@ Claude identifies this as a risk assessment request
   |    +--> Assess confidence based on data completeness
   |
   v
-Claude receives risk assessment, presents to user
+the MCP client receives risk assessment, presents to user
 ```
 
 ### Vetting Check Pipeline
@@ -94,7 +94,7 @@ Claude receives risk assessment, presents to user
 User: "Run our named refrigerated-customer qualification"
   |
   v
-Claude orchestrates:
+the MCP client orchestrates:
   |
   +--> qualification_reports(          [Risk Engine]
   |      dot_number="69494"
@@ -107,7 +107,7 @@ Claude orchestrates:
   |    +--> Return the upstream result without local default thresholds
   |
   v
-Claude presents: "PASS - Werner Enterprises qualifies on all 8 criteria"
+the MCP client presents: "PASS - Werner Enterprises qualifies on all 8 criteria"
 ```
 
 ### Full Pipeline Chain
@@ -116,7 +116,7 @@ Claude presents: "PASS - Werner Enterprises qualifies on all 8 criteria"
 User: "Vet Werner Enterprises and give me a report"
   |
   v
-Claude orchestrates three-stage pipeline:
+the MCP client orchestrates three-stage pipeline:
   |
   +--> Stage 1: Carrier Intel
   |    carrier_lookup("Werner Enterprises")  -> find DOT
@@ -219,7 +219,7 @@ Risk Engine produces assessments that Ops Reporter consumes:
 
 ## Security Model
 
-**No direct API access:** Risk Engine does not hold or use the SearchCarriers API key. It operates on data passed from Carrier Intel through Claude's context. The API key stays in Carrier Intel's MCP server process.
+**No direct API access:** Risk Engine does not hold or use the SearchCarriers API key. It operates on data passed from Carrier Intel through the model client's context. The API key stays in Carrier Intel's MCP server process.
 
 **No data storage:** Risk Engine is stateless. Carrier data enters as function arguments, gets scored, and the result is returned. Nothing is written to disk, cached, or persisted. No database.
 
@@ -231,7 +231,7 @@ Risk Engine produces assessments that Ops Reporter consumes:
 
 | Error | Trigger | Response | Recovery |
 |-------|---------|----------|----------|
-| No carrier data provided | Tool called without carrier_data or dot_number | "Provide a DOT number or carrier data from carrier_profile" | Claude fetches via Carrier Intel |
+| No carrier data provided | Tool called without carrier_data or dot_number | "Provide a DOT number or carrier data from carrier_profile" | the MCP client fetches via Carrier Intel |
 | Carrier data incomplete | Key fields missing (no safety rating, no insurance) | Score computed with reduced confidence; missing fields flagged | User informed of data gaps |
 | Tier insufficient | Free/Basic user calls risk_score | Structured tier error with upgrade URL | No retry; show pricing |
 | Invalid DOT format | Non-numeric DOT input | "DOT number must be numeric" | User corrects input |
@@ -250,4 +250,4 @@ Risk Engine produces assessments that Ops Reporter consumes:
 | MCP server startup | < 1 second | 3 seconds | Python import + module load |
 | Tier check | < 1ms | N/A | In-memory via shared tier_gate |
 
-Risk Engine is computation-bound, not I/O-bound. The performance bottleneck is always in Stage 1 (Carrier Intel's API calls), not Stage 2 (Risk Engine's scoring). When carrier data is already in Claude's context from a prior lookup, risk scoring adds negligible latency.
+Risk Engine is computation-bound, not I/O-bound. The performance bottleneck is always in Stage 1 (Carrier Intel's API calls), not Stage 2 (Risk Engine's scoring). When carrier data is already in the model client's context from a prior lookup, risk scoring adds negligible latency.

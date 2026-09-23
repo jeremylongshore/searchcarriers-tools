@@ -27,7 +27,7 @@ Ops Reporter is the **OUTPUT** stage of the SearchCarriers stackable pipeline. I
 
 **Upstream**: Ops Reporter consumes output from both Carrier Intel and Risk Engine. It is the terminal stage of the pipeline -- nothing downstream consumes its output programmatically. Its output is for humans and external systems (TMS import, email, compliance records).
 
-**Data flow**: Claude orchestrates the pipeline. When a user asks for a vetting report, Claude calls Carrier Intel (data retrieval), then Risk Engine (risk assessment), then Ops Reporter (formatting). Ops Reporter receives pre-computed data as function arguments -- it does not call APIs or compute risk scores.
+**Data flow**: the MCP client orchestrates the pipeline. When a user asks for a vetting report, the MCP client calls Carrier Intel (data retrieval), then Risk Engine (risk assessment), then Ops Reporter (formatting). Ops Reporter receives pre-computed data as function arguments -- it does not call APIs or compute risk scores.
 
 **Standalone usage**: Ops Reporter can generate output with only Carrier Intel data (no risk scores). In this mode, the risk assessment and recommendation sections display "Risk assessment not available -- run risk_score for a complete report." The tool degrades gracefully rather than failing.
 
@@ -42,7 +42,7 @@ Ops Reporter is the **OUTPUT** stage of the SearchCarriers stackable pipeline. I
 | **Fleet Formatter** | `scripts/fleet.py` (planned) | Builds fleet analysis report from equipment and vehicle data. Computes type breakdowns, make distributions, and age analysis. |
 | **Template Helpers** | `scripts/templates.py` (planned) | Shared formatting utilities: table builders, section headers, disclaimer text, metadata blocks, number formatting, date formatting. |
 | **Commands** | `commands/` (planned) | Slash command definitions: `/sc-report` for generate_report, `/sc-compare` for generate_compare. |
-| **Embedded Skill** | `skills/` (planned) | Teaches Claude when to use each Ops Reporter tool, how to chain the full pipeline, and how to present reports to freight professionals. |
+| **Embedded Skill** | `skills/` (planned) | Teaches the MCP client when to use each Ops Reporter tool, how to chain the full pipeline, and how to present reports to freight professionals. |
 
 ## Data Flow
 
@@ -52,7 +52,7 @@ Ops Reporter is the **OUTPUT** stage of the SearchCarriers stackable pipeline. I
 User: "Give me a vetting report on DOT 69494"
   |
   v
-Claude orchestrates three-stage pipeline:
+the MCP client orchestrates three-stage pipeline:
   |
   +--> Stage 1: Carrier Intel
   |    carrier_profile(dot=69494)
@@ -87,7 +87,7 @@ Claude orchestrates three-stage pipeline:
   |    +--> Return assembled Markdown report
   |
   v
-Claude receives formatted report, presents to user
+the MCP client receives formatted report, presents to user
 ```
 
 ### Carrier Comparison
@@ -96,7 +96,7 @@ Claude receives formatted report, presents to user
 User: "Compare DOT 69494, DOT 3456789, and DOT 27021"
   |
   v
-Claude orchestrates data fetching for all carriers:
+the MCP client orchestrates data fetching for all carriers:
   |
   +--> For each carrier (parallel where possible):
   |    carrier_profile(dot=N)     [Carrier Intel]
@@ -130,7 +130,7 @@ User receives: side-by-side comparison table with recommendation
 User: "Export carrier data for DOT 69494 as CSV"
   |
   v
-Claude fetches carrier data if not in context:
+the MCP client fetches carrier data if not in context:
   |
   +--> carrier_profile(dot=69494)     [Carrier Intel]
   |
@@ -239,7 +239,7 @@ This design means Ops Reporter never fails due to missing upstream data. It prod
 
 | Error | Trigger | Response | Recovery |
 |-------|---------|----------|----------|
-| No carrier data provided | Tool called without carrier_data or dot_number | "Provide a DOT number or carrier data from carrier_profile" | Claude fetches via Carrier Intel |
+| No carrier data provided | Tool called without carrier_data or dot_number | "Provide a DOT number or carrier data from carrier_profile" | the MCP client fetches via Carrier Intel |
 | Risk data missing | generate_report called without risk_data | Report generated with "Risk assessment not available" stubs | Informational; suggest running risk_score |
 | Tier insufficient | Free/Basic user calls any Ops Reporter tool | Structured tier error with upgrade URL | No retry; show pricing |
 | Invalid DOT format | Non-numeric DOT input | "DOT number must be numeric" | User corrects input |
@@ -263,4 +263,4 @@ This design means Ops Reporter never fails due to missing upstream data. It prod
 | MCP server cold start | < 1 second | 3 seconds | Python import + module load |
 | Tier check | < 1ms | N/A | In-memory via shared tier_gate |
 
-Ops Reporter is the fastest stage in the pipeline. All tools with pre-fetched data complete in under 500ms at p99. The formatting operations are string concatenation and table construction -- no computation, no I/O, no external calls. The only scenario where Ops Reporter approaches multi-second latency is when Claude needs to fetch data from Carrier Intel and Risk Engine first.
+Ops Reporter is the fastest stage in the pipeline. All tools with pre-fetched data complete in under 500ms at p99. The formatting operations are string concatenation and table construction -- no computation, no I/O, no external calls. The only scenario where Ops Reporter approaches multi-second latency is when the MCP client needs to fetch data from Carrier Intel and Risk Engine first.

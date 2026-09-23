@@ -18,12 +18,34 @@ sys.path.insert(
 )
 
 from field_map import (
+    _first,
+    _format_phone,
+    _to_int,
     normalize_authority,
     normalize_carrier,
     normalize_insurance,
 )
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
+
+
+class TestNormalizationPrimitives:
+    """Malformed optional fields remain explicit instead of crashing normalization."""
+
+    def test_first_skips_none_and_blank(self):
+        assert _first(None, " ", "value") == "value"
+        assert _first(None, "") is None
+
+    def test_integer_conversion_is_bounded(self):
+        assert _to_int("42") == 42
+        assert _to_int(None) is None
+        assert _to_int("unknown") is None
+
+    def test_phone_formats_us_numbers_and_preserves_unknown_shapes(self):
+        assert _format_phone("5550100000") == "(555) 010-0000"
+        assert _format_phone("1-555-010-0000") == "(555) 010-0000"
+        assert _format_phone("ext 12") == "ext 12"
+        assert _format_phone(None) is None
 
 
 @pytest.fixture
@@ -145,6 +167,18 @@ class TestNormalizeCarrierSnakeCase:
                 f"Field {field!r} should not be empty, got {result[field]!r}"
             )
 
+    def test_operation_classification_parses_json_string(self):
+        result = normalize_carrier({"operation_classifications": '["Interstate"]'})
+        assert result["operation_classifications"] == ["Interstate"]
+
+    def test_invalid_operation_classification_stays_visible(self):
+        result = normalize_carrier({"operation_classifications": "not-json"})
+        assert result["operation_classifications"] == ["not-json"]
+
+    def test_non_list_cargo_is_rejected(self):
+        result = normalize_carrier({"cargo_carried": "general_freight"})
+        assert result["cargo_types"] == []
+
 
 # ---------------------------------------------------------------------------
 # normalize_authority
@@ -186,6 +220,13 @@ class TestNormalizeAuthorityFixture:
         assert result[0]["type"] == "Common"
         assert result[0]["status"] == "Active"
         assert result[1]["type"] == "Contract"
+
+    def test_non_collection_returns_empty(self):
+        assert normalize_authority("invalid") == []
+
+    def test_unknown_real_status_is_preserved(self):
+        result = normalize_authority({"common_stat": "X", "docket_number": "MC1"})
+        assert result == [{"type": "Common", "status": "X", "docket_number": "MC1"}]
 
 
 # ---------------------------------------------------------------------------
@@ -245,3 +286,18 @@ class TestNormalizeInsuranceFixture:
         assert result[0]["coverage"] == 1000000
         assert result[0]["insurer"] == "Example Indemnity Co"
         assert result[0]["status"] == "Active"
+
+    def test_non_collection_returns_empty(self):
+        assert normalize_insurance("invalid") == []
+
+    def test_invalid_coverage_becomes_zero(self):
+        result = normalize_insurance(
+            [{"type": "Cargo", "coverage": "unknown", "status": "Pending"}]
+        )
+        assert result[0]["coverage"] == 0
+
+    def test_unknown_real_type_and_invalid_amount_remain_safe(self):
+        result = normalize_insurance([{"ins_type_code": "Z", "max_cov_amount": "not-a-number"}])
+        assert result[0]["type"] == "Type Z"
+        assert result[0]["coverage"] == 0
+        assert result[0]["status"] == "Inactive"

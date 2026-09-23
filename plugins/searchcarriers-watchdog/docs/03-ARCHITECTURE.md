@@ -69,7 +69,7 @@ route; `get_alerts` returns a structured compatibility response.
 User: "Add DOT 69494 to my watch list"
   |
   v
-Claude parses natural language, identifies manage_watchlist tool
+the MCP client parses natural language, identifies manage_watchlist tool
   |
   v
 MCP Server: manage_watchlist(action="add", dot_number="69494")
@@ -85,7 +85,7 @@ MCP Server: manage_watchlist(action="add", dot_number="69494")
   +--> Build response JSON: { meta: {...}, result: { status: "added", carrier: {...} } }
   |
   v
-Claude receives structured JSON, formats confirmation for user
+the MCP client receives structured JSON, formats confirmation for user
   |
   v
 User sees: "Added WERNER ENTERPRISES INC (DOT 69494) to your watch list."
@@ -97,7 +97,7 @@ User sees: "Added WERNER ENTERPRISES INC (DOT 69494) to your watch list."
 User: "Format this validated carrier event for Slack"
   |
   v
-Claude validates the caller-supplied event, then calls:
+the MCP client validates the caller-supplied event, then calls:
   |
   +--> route_alert(alert={...}, channel="slack")
        |
@@ -114,7 +114,7 @@ Claude validates the caller-supplied event, then calls:
        +--> Return: { meta: {...}, formatted: { channel: "slack", blocks: [...] } }
   |
   v
-Claude presents formatted Slack messages to user
+the MCP client presents formatted Slack messages to user
   |
   v
 User copies the Block Kit JSON to their Slack integration, or sends via webhook
@@ -141,7 +141,7 @@ MCP Server: monitor_compliance(dot_number="3456789")
   +--> Return: { compliance_status, checks, drift_items, carrier, ... }
   |
   v
-Claude receives the current-state assessment and presents the evidence
+the MCP client receives the current-state assessment and presents the evidence
   |
   v
 User sees: current posture, failed checks, and required review actions
@@ -174,7 +174,7 @@ Watchdog uses a **format-only** architecture for alert routing. This is a delibe
 
 2. **User controls delivery.** The user decides when, where, and how alerts are sent. They can preview the formatted message before sending. They can modify it. They can route different severities to different channels. This flexibility is impossible if the plugin sends messages directly.
 
-3. **Infrastructure independence.** Watchdog works regardless of whether the user has Slack, Telegram, email, or a custom webhook. The formatting is useful even if the user just reads the formatted output in Claude Code and never sends it anywhere.
+3. **Infrastructure independence.** Watchdog works regardless of whether the user has Slack, Telegram, email, or a custom webhook. The formatting is useful even if the user just reads the formatted output in an MCP-capable client and never sends it anywhere.
 
 ## Integration Points
 
@@ -200,7 +200,7 @@ alert route.
 
 **No delivery credentials:**
 - Watchdog does not store, request, or handle Slack tokens, Telegram bot tokens, email passwords, or webhook URLs
-- Formatted alert output is returned to Claude; the user handles delivery
+- Formatted alert output is returned to the MCP client; the user handles delivery
 - This eliminates an entire class of credential management and leakage risks
 
 **Data classification:**

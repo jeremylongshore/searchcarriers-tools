@@ -5,7 +5,7 @@ INPUT stage of the stackable pipeline:
   Carrier Intel (INPUT) -> Risk Engine (ANALYSIS) -> Ops Reporter (OUTPUT)
 
 Thin wrapper around the SearchCarriers API. All four tools return structured
-JSON; business logic and interpretation are delegated to Claude via skills.
+JSON; business logic and interpretation are delegated to the model client via skills.
 """
 
 import asyncio

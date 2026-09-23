@@ -27,7 +27,7 @@ Carrier Intel is the **INPUT** stage of the SearchCarriers stackable pipeline. I
 
 **Upstream**: SearchCarriers REST API at `https://searchcarriers.com/api/v1`. This is the only external dependency.
 
-**Downstream consumers**: Risk Engine reads Carrier Intel's carrier data, authority status, and insurance records to compute risk scores. Ops Reporter reads both Carrier Intel and Risk Engine output to generate formatted reports. Claude handles the data routing -- when a user asks "vet this carrier", Claude calls Carrier Intel first, passes the result to Risk Engine, then passes both to Ops Reporter.
+**Downstream consumers**: Risk Engine reads Carrier Intel's carrier data, authority status, and insurance records to compute risk scores. Ops Reporter reads both Carrier Intel and Risk Engine output to generate formatted reports. the MCP client handles the data routing -- when a user asks "vet this carrier", the MCP client calls Carrier Intel first, passes the result to Risk Engine, then passes both to Ops Reporter.
 
 **Standalone usage**: Carrier Intel works independently. A user can look up a carrier, get a full profile, map entities, or summarize a fleet without ever touching Risk Engine or Ops Reporter.
 
@@ -37,7 +37,7 @@ Carrier Intel is the **INPUT** stage of the SearchCarriers stackable pipeline. I
 |-----------|----------|---------------|
 | **MCP Server** | `scripts/carrier_intel_mcp.py` | Registers 4 MCP tools, handles incoming tool calls, makes HTTP requests to SearchCarriers API, enforces tier gating, returns structured JSON. This is a thin wrapper -- no business logic, no data interpretation, no risk scoring. |
 | **Commands** | `commands/sc-lookup.md`, `commands/sc-profile.md` | Slash command definitions that map user input to MCP tool calls. `/sc-lookup` maps to `carrier_lookup`, `/sc-profile` maps to `carrier_profile`. Commands handle argument parsing and output formatting. |
-| **Embedded Skill** | `skills/searchcarriers-carrier-intel/SKILL.md` | Teaches Claude how to use Carrier Intel tools effectively: when to use which tool, how to interpret the 143-field carrier object, how to chain tools together, and how to present results to a freight professional. |
+| **Embedded Skill** | `skills/searchcarriers-carrier-intel/SKILL.md` | Teaches the MCP client how to use Carrier Intel tools effectively: when to use which tool, how to interpret the 143-field carrier object, how to chain tools together, and how to present results to a freight professional. |
 | **Agent** | `agents/carrier-analyst.md` | Autonomous agent definition for complex carrier analysis workflows. Given a carrier name or DOT, runs lookup, profile, fleet summary, and optionally entity mapping, then synthesizes findings into a natural language briefing. |
 
 ## Data Flow
@@ -48,7 +48,7 @@ Carrier Intel is the **INPUT** stage of the SearchCarriers stackable pipeline. I
 User: "look up JB Hunt"
   |
   v
-Claude parses natural language, identifies carrier_lookup tool
+the MCP client parses natural language, identifies carrier_lookup tool
   |
   v
 MCP Server: carrier_lookup(search_term="JB Hunt")
@@ -64,7 +64,7 @@ MCP Server: carrier_lookup(search_term="JB Hunt")
   +--> Build response JSON: { meta: {...}, carriers: [...] }
   |
   v
-Claude receives structured JSON, formats for user
+the MCP client receives structured JSON, formats for user
   |
   v
 User sees: carrier name, DOT, MC, status, location, fleet size, operation type
@@ -93,7 +93,7 @@ MCP Server: carrier_profile(dot_number="69494")
   |    }
   |
   v
-Claude receives unified profile, formats for user
+the MCP client receives unified profile, formats for user
   |
   v
 User sees: complete carrier identity, all authority statuses, insurance coverage
@@ -105,7 +105,7 @@ User sees: complete carrier identity, all authority statuses, insurance coverage
 User: "vet Werner Enterprises and give me a report"
   |
   v
-Claude orchestrates three-stage pipeline:
+the MCP client orchestrates three-stage pipeline:
   |
   +--> Stage 1: Carrier Intel
   |    carrier_lookup("Werner Enterprises") -> carrier data
@@ -144,7 +144,7 @@ All endpoints use GET method, accept `Authorization: Bearer {token}` header, and
 **Data classification:**
 - Carrier data from SearchCarriers is derived from public FMCSA records. Legal name, DOT, MC, address, fleet size, safety ratings, and authority status are all public information
 - Contact fields (phone, fax, email) are included in the carrier object and are FMCSA-reported -- not private PII, but should be handled with standard care
-- No user-specific data is stored. No session state. No local database. Data flows from API through the MCP server into Claude's context and is handled according to Claude's data retention policies
+- No user-specific data is stored. No session state. No local database. Data flows from API through the MCP server into the model client's context and is handled according to the selected model client's data retention policies
 
 **What gets logged:**
 - Tool invocations (tool name, search term type, DOT number) for debugging

@@ -12,11 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Customer-facing Markdown and one-page PDF briefs for all 26 skills, embedded plugin
   skills, and composed workflows.
 - A deterministic one-pager generator with drift checks in the repository validation lane.
+- A root multi-client MCP configuration, model-compatibility guide, and live protocol
+  handshake tests for all five MCP servers.
 
 ### Changed
 
 - Link every package to its one-page brief and PDF, and document the public capability
   page alongside the package catalog.
+- Describe Grok Build, Claude Code, and generic MCP use explicitly while keeping hosted
+  Grok Bot transport requirements separate from the local stdio implementation.
 
 ## [0.3.0] - 2026-09-23
 

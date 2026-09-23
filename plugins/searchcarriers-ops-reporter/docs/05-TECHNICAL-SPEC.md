@@ -75,7 +75,7 @@ Generates a formatted, multi-section vetting report from carrier data and risk a
 ```json
 {
   "dot_number": "string (required) - Carrier's USDOT number",
-  "carrier_data": "object (optional) - Pre-fetched carrier data from carrier_profile. If omitted, Claude fetches via Carrier Intel.",
+  "carrier_data": "object (optional) - Pre-fetched carrier data from carrier_profile. If omitted, the MCP client fetches via Carrier Intel.",
   "risk_data": "object (optional) - Pre-fetched risk assessment from risk_score, insurance_check, compliance_audit, vetting_check. If omitted, report is generated without risk sections."
 }
 ```
@@ -131,7 +131,7 @@ Generates a fleet analysis report with equipment breakdown, make distribution, a
 ```json
 {
   "dot_number": "string (required) - Carrier's USDOT number",
-  "fleet_data": "object (optional) - Pre-fetched fleet data from fleet_summary. If omitted, Claude fetches via Carrier Intel.",
+  "fleet_data": "object (optional) - Pre-fetched fleet data from fleet_summary. If omitted, the MCP client fetches via Carrier Intel.",
   "carrier_data": "object (optional) - Pre-fetched carrier data for company name and fleet size context."
 }
 ```
@@ -522,6 +522,12 @@ Ops Reporter is pure formatting with no computation and no external I/O. With pr
 
 ## Deployment
 
+> **Multi-client path:** From the repository root, run `./scripts/setup-dev.sh`,
+> export `SEARCHCARRIERS_API_KEY`, and let Grok Build, Claude Code, or another
+> MCP client load the root `.mcp.json`. The client-specific copy steps below
+> describe optional Claude plugin packaging. See
+> [`MODEL-COMPATIBILITY.md`](../../../MODEL-COMPATIBILITY.md).
+
 ### Installation
 
 1. Ensure Carrier Intel is installed (required for data):
@@ -595,4 +601,4 @@ For the complete three-stage pipeline, your `.mcp.json` should include all three
 }
 ```
 
-All three plugins share the same API key and run as independent MCP server processes. Claude orchestrates the data flow between them.
+All three plugins share the same API key and run as independent MCP server processes. The MCP client orchestrates the data flow between them.

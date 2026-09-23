@@ -439,21 +439,9 @@ class TestExportData:
         parsed = json.loads(result["data"])
         assert "basics" in parsed
 
-    async def test_invalid_format_defaults(self, fake_api_key, carrier_primary):
-        """Invalid format string defaults to 'json'."""
-        with respx.mock(base_url=API_BASE) as router:
-            router.get(f"{SEARCH_BASE}/search").mock(
-                return_value=httpx.Response(200, json=carrier_primary)
-            )
-            router.get("/company/1234567/authorities").mock(
-                return_value=httpx.Response(200, json={"data": []})
-            )
-            router.get("/company/1234567/insurances").mock(
-                return_value=httpx.Response(200, json={"data": []})
-            )
-            router.get("/company/1234567/equipment").mock(
-                return_value=httpx.Response(200, json={"data": []})
-            )
-            result = await _export_data({"dot_number": "1234567", "format": "pdf"}, fake_api_key)
+    async def test_invalid_format_returns_supported_formats(self, fake_api_key):
+        """Invalid formats fail explicitly before any API request."""
+        result = await _export_data({"dot_number": "1234567", "format": "xlsx"}, fake_api_key)
 
-        assert result["format"] == "json"
+        assert_error_payload(result, "invalid_format")
+        assert "json" in result["error"]["message"]

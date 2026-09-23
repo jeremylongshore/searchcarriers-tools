@@ -47,7 +47,7 @@ API Bridge is a **STANDALONE** integration plugin. It does not participate in th
 | **Health Checker** | `scripts/health.py` (planned) | Endpoint probing logic. Tests each API endpoint, measures response time, parses rate limit headers, computes aggregate health status. |
 | **Local Webhook Registry** | `webhook_manage` in the MCP server | Stores downstream delivery configuration locally. It does not call an upstream SearchCarriers webhook API. |
 | **Commands** | `commands/` (planned) | Slash command definitions for common operations. |
-| **Embedded Skill** | `skills/` (planned) | Teaches Claude when to use API Bridge tools, how to chain bulk_lookup with tms_sync, and how to interpret health check results. |
+| **Embedded Skill** | `skills/` (planned) | Teaches the MCP client when to use API Bridge tools, how to chain bulk_lookup with tms_sync, and how to interpret health check results. |
 
 ## Data Flow
 
@@ -57,7 +57,7 @@ API Bridge is a **STANDALONE** integration plugin. It does not participate in th
 User: "Look up these 50 DOT numbers: 69494, 27021, 3456789, ..."
   |
   v
-Claude invokes bulk_lookup(dot_numbers=[...], sections="standard")
+the MCP client invokes bulk_lookup(dot_numbers=[...], sections="standard")
   |
   v
 MCP Server: bulk_lookup
@@ -93,7 +93,7 @@ MCP Server: bulk_lookup
        }
   |
   v
-Claude receives batch results, formats for user
+the MCP client receives batch results, formats for user
 ```
 
 ### API Health Check
@@ -223,7 +223,7 @@ Mappings are stored as Python dictionaries in `scripts/tms_mapper.py`. Adding a 
 
 **Webhook secrets:** When creating a webhook, the user can provide an HMAC secret. This secret is sent to the Carrier Watch API for server-side signature validation. API Bridge stores no secrets locally -- the secret passes through to the server and is not retained.
 
-**TMS data handling:** Carrier data formatted for TMS export is returned as a string (CSV or JSON content). It is not written to disk by the MCP server. The user receives it in Claude's context and can save it to a file themselves. No PII beyond FMCSA-reported business contact information.
+**TMS data handling:** Carrier data formatted for TMS export is returned as a string (CSV or JSON content). It is not written to disk by the MCP server. The user receives it in the model client's context and can save it to a file themselves. No PII beyond FMCSA-reported business contact information.
 
 ## Error Handling Strategy
 

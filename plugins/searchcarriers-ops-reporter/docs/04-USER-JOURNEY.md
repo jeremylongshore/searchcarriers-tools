@@ -6,7 +6,7 @@
 **Role:** Senior Freight Broker and Compliance Lead at a mid-size 3PL (75 employees, 300 loads/day)
 **Goal:** Produce professional vetting reports and carrier comparisons fast enough to keep up with load volume, with a standardized format that her compliance team and operations managers can rely on
 **Tier:** Pro ($49/month -- she upgraded from Free after using Carrier Intel for a week, then added Risk Engine after the $67K cargo claim incident)
-**Current workflow:** She uses Carrier Intel to pull carrier profiles and Risk Engine to score them. But when she needs to share findings with her team, she copies Claude's output into a Google Doc, reformats it, adds her own summary paragraph, and emails it. This takes 15 to 20 minutes per report. For carrier comparisons, she pastes multiple carrier profiles into a spreadsheet and manually aligns the columns. That takes 30 to 45 minutes.
+**Current workflow:** She uses Carrier Intel to pull carrier profiles and Risk Engine to score them. But when she needs to share findings with her team, she copies the model client's output into a Google Doc, reformats it, adds her own summary paragraph, and emails it. This takes 15 to 20 minutes per report. For carrier comparisons, she pastes multiple carrier profiles into a spreadsheet and manually aligns the columns. That takes 30 to 45 minutes.
 **Pain:** Her operations manager just asked for vetting reports on 8 carriers by end of day. At 20 minutes each, that is 2.5 hours of formatting work. She has already spent the morning on data gathering and risk scoring -- now she needs the output stage.
 
 ## Prerequisites
@@ -16,7 +16,7 @@
 - [ ] Carrier Intel plugin installed (Ops Reporter depends on it for data)
 - [ ] Risk Engine plugin installed (recommended for complete reports; optional for basic output)
 - [ ] Ops Reporter plugin installed -- configure in `.mcp.json` or copy to plugins directory
-- [ ] Claude Code with MCP support
+- [ ] Grok Build, Claude Code, or another MCP-capable client
 
 ## Journey 1: Full Pipeline Vetting Report
 
@@ -29,10 +29,10 @@ Give me a full vetting report on Werner Enterprises
 ```
 
 **What happens behind the scenes (three-stage pipeline):**
-1. Claude calls Carrier Intel: `carrier_lookup("Werner Enterprises")` to find DOT 69494
-2. Claude calls Carrier Intel: `carrier_profile(dot_number="69494")` for full profile
-3. Claude calls Risk Engine: `risk_score`, `insurance_check`, `compliance_audit`, `vetting_check`
-4. Claude calls Ops Reporter: `generate_report` with all upstream data combined
+1. the MCP client calls Carrier Intel: `carrier_lookup("Werner Enterprises")` to find DOT 69494
+2. the MCP client calls Carrier Intel: `carrier_profile(dot_number="69494")` for full profile
+3. the MCP client calls Risk Engine: `risk_score`, `insurance_check`, `compliance_audit`, `vetting_check`
+4. the MCP client calls Ops Reporter: `generate_report` with all upstream data combined
 
 **Expected output:**
 
@@ -175,8 +175,8 @@ Compare these carriers for a reefer load:
 ```
 
 **What happens behind the scenes:**
-1. Claude fetches profiles and risk scores for all three carriers (Carrier Intel + Risk Engine)
-2. Claude calls Ops Reporter: `generate_compare` with all three carrier data sets
+1. the MCP client fetches profiles and risk scores for all three carriers (Carrier Intel + Risk Engine)
+2. the MCP client calls Ops Reporter: `generate_compare` with all three carrier data sets
 
 **Expected output:**
 
@@ -242,8 +242,8 @@ Export carrier data for DOT 69494 as CSV
 ```
 
 **What happens behind the scenes:**
-1. Claude checks if carrier data is already in context (it is, from the vetting report earlier)
-2. Claude calls Ops Reporter: `export_data(dot_number="69494", carrier_data={...}, format="csv")`
+1. the MCP client checks if carrier data is already in context (it is, from the vetting report earlier)
+2. the MCP client calls Ops Reporter: `export_data(dot_number="69494", carrier_data={...}, format="csv")`
 
 **Expected output:**
 
@@ -332,8 +332,8 @@ Generate a fleet report for DOT 27021
 ```
 
 **What happens behind the scenes:**
-1. Claude calls Carrier Intel: `fleet_summary(dot_number="27021")` for equipment data
-2. Claude calls Ops Reporter: `generate_fleet(dot_number="27021", fleet_data={...})`
+1. the MCP client calls Carrier Intel: `fleet_summary(dot_number="27021")` for equipment data
+2. the MCP client calls Ops Reporter: `generate_fleet(dot_number="27021", fleet_data={...})`
 
 **Expected output:**
 
@@ -517,25 +517,25 @@ For a single carrier analysis, use:
 **Trigger:** User requests export in an unsupported format.
 
 ```
-Export DOT 69494 as PDF
+Export DOT 69494 as XLSX
 ```
 
 **Response:**
 
 ```
-PDF export is not supported in this version. Supported formats:
+XLSX export is not supported in this version. Supported formats:
   - json: Structured JSON with full carrier data
   - csv: Flat CSV for TMS import or spreadsheet analysis
   - markdown: Formatted report (same as generate_report output)
+  - pdf: Rendered report where supported by the report tool
 
-Tip: For PDF output, export as Markdown and convert with pandoc:
-  pandoc report.md -o report.pdf
+Use CSV for spreadsheet analysis, or call the report tool with PDF output.
 ```
 
 ## FAQ
 
 **Q: Does Ops Reporter make API calls?**
-A: No. Ops Reporter formats data that has already been retrieved by Carrier Intel and analyzed by Risk Engine. It is a pure formatting layer. The only network-dependent step is the upstream data fetching, which Claude handles before calling Ops Reporter.
+A: No. Ops Reporter formats data that has already been retrieved by Carrier Intel and analyzed by Risk Engine. It is a pure formatting layer. The only network-dependent step is the upstream data fetching, which the MCP client handles before calling Ops Reporter.
 
 **Q: Can I generate a report without Risk Engine?**
 A: Yes. Ops Reporter generates a partial report using only Carrier Intel data. The Company Overview, Safety Record, and basic Insurance sections are populated. The Risk Assessment, Qualification, and Insurance Analysis sections show "not available" with instructions to run the relevant Risk Engine tools.
@@ -547,7 +547,7 @@ A: The comparison table shows "N/A" for any missing metrics. A footnote explains
 A: Not in v0.1. The report template is standardized. Custom templates (section order, included/excluded sections, company branding) are planned for v0.2.
 
 **Q: How do I save the report to a file?**
-A: Copy the Markdown output and save it as a `.md` file. For automated saving, pipe Claude Code output to a file. The report is plain Markdown text -- no special tooling needed to save or share it.
+A: Copy the Markdown output and save it as a `.md` file. For automated saving, pipe the MCP client output to a file. The report is plain Markdown text -- no special tooling needed to save or share it.
 
 **Q: What CSV headers does export_data use?**
 A: The CSV headers map to standard TMS fields: `dot_number`, `mc_number`, `legal_name`, `dba_name`, `status`, `safety_rating`, `power_units`, `total_drivers`, `phy_street`, `phy_city`, `phy_state`, `phy_zip`, `phone`, `bipd_coverage`, `bipd_status`, `cargo_coverage`, `cargo_status`, `common_authority`, `contract_authority`, `broker_authority`, `carrier_operation`. Headers are lowercase with underscores for compatibility with most import tools.

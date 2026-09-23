@@ -87,7 +87,7 @@ def render(skill_file: Path) -> str:
 
 **{sentence_case(job)}**
 
-`{name}` | SearchCarriers tier: **{tier}** | Version **{meta['version']}**
+`{name}` | SearchCarriers tier: **{tier}** | Version **{meta["version"]}**
 
 ## The customer pain
 

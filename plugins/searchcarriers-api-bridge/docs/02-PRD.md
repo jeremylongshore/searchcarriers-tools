@@ -46,34 +46,33 @@ As a **DevOps engineer supporting a carrier data pipeline**, I want to **check t
 As an **operations manager**, I want to **export carrier data in a format my TMS can import directly**, so that **I can update our carrier records without manually re-keying 50 fields per carrier**.
 
 **Acceptance Criteria:**
-- Supports export formats: McLeod LoadMaster CSV, TMW Suite CSV, generic CSV, JSON
-- Maps SearchCarriers carrier fields to TMS-specific column names
-- Handles date format differences (ISO 8601 vs. MM/DD/YYYY vs. YYYYMMDD)
-- Handles status code translations (SearchCarriers "A" = McLeod "Active")
-- Accepts carrier data from bulk_lookup output or from Carrier Intel profile data
-- Exports include timestamp and source metadata for audit trails
+- Fetches a carrier by DOT and returns a mapped record for `generic`, `mcleod`,
+  `tms_international`, or `dat_power`
+- Returns the field mapping guide and unmapped source fields beside the record
+- Keeps serialization and file creation in the calling workflow
 
 ### US-04: TMS Data Import (Enterprise)
 
-As a **systems integrator**, I want to **pull carrier data from our TMS and compare it against live SearchCarriers data**, so that **I can identify records that are stale or out of sync without manual comparison**.
+As a **systems integrator**, I want to **translate one TMS record into the SearchCarriers field vocabulary**, so that **I can inspect the mapping before a separate reconciliation workflow compares or applies it**.
 
 **Acceptance Criteria:**
-- Accepts TMS-formatted carrier data (CSV or JSON)
+- Accepts one structured TMS record
 - Maps TMS fields back to SearchCarriers schema
-- Fetches live data from SearchCarriers for each carrier in the import
-- Returns a diff report: fields that changed, carriers that no longer exist, new data available
+- Returns mapped and unmapped fields without making an API request
+- Does not claim to perform a live diff or write into a TMS
 - Requires Enterprise tier
 
 ### US-05: Webhook Endpoint Management
 
-As an **IT manager**, I want to **create, list, update, and delete Carrier Watch webhook endpoints from the CLI**, so that **I can manage our monitoring integrations without switching to the web dashboard**.
+As an **IT manager**, I want to **maintain a local webhook configuration from the CLI**, so that **a separate delivery service has an explicit, reviewable routing file**.
 
 **Acceptance Criteria:**
-- Create a webhook endpoint with URL, event types, and optional secret
-- List all configured webhook endpoints with their status
-- Update an existing webhook endpoint (URL, events, active/inactive toggle)
+- Create a local webhook record with URL and event types
+- List locally configured records
+- Update an existing local record's URL or events
 - Delete a webhook endpoint
 - Validate webhook URL format before creating
+- Make no claim that SearchCarriers registered the endpoint or delivered an event
 - All operations require SMB tier
 
 ## Functional Requirements
@@ -108,45 +107,48 @@ As an **IT manager**, I want to **create, list, update, and delete Carrier Watch
 
 **Priority:** P0
 
-### FR-03: TMS Export with Field Mapping
+### FR-03: TMS Record Export with Field Mapping
 
-**Description:** The `tms_sync` tool in export mode accepts carrier data (from bulk_lookup or Carrier Intel) and a target TMS format, then produces a formatted output ready for TMS import. Field mapping configuration is embedded in the plugin.
+**Description:** The `tms_sync` tool in export mode fetches one carrier by DOT,
+maps its fields to the selected TMS vocabulary, and returns a structured record
+plus a mapping guide. The caller owns CSV/JSON serialization and import.
 
 **Acceptance Criteria:**
-- Supported formats: `mcleod`, `tmw`, `generic_csv`, `json`
+- Supported formats: `generic`, `mcleod`, `tms_international`, `dat_power`
 - Field mapping per format: SearchCarriers field name -> TMS column name
-- Date format conversion per TMS requirement
-- Status code translation per TMS vocabulary
-- Output includes source metadata (SearchCarriers API, timestamp, version)
+- Output includes pipeline source, timestamp, and version metadata
 - Handles missing fields gracefully (empty cell, not error)
 
 **Priority:** P1
 
-### FR-04: TMS Import with Diff Detection
+### FR-04: TMS Import Translation
 
-**Description:** The `tms_sync` tool in import mode accepts TMS-formatted carrier data, maps it back to SearchCarriers schema, fetches live data for each carrier, and returns a diff report showing what has changed.
+**Description:** The `tms_sync` tool in import mode accepts one structured TMS
+record and reverse-maps known fields into the SearchCarriers vocabulary. This is
+a translation step, not a live comparison or TMS write.
 
 **Acceptance Criteria:**
-- Accepts CSV or JSON input in supported TMS formats
+- Accepts a structured record in a supported TMS format
 - Reverse field mapping: TMS column name -> SearchCarriers field
-- Fetches live data via SearchCarriers API for each DOT in the import
-- Diff report per carrier: changed fields with old value / new value
-- Flags carriers with critical changes: authority revoked, insurance lapsed, status changed
+- Returns unmapped input fields explicitly
+- Makes no API request in import mode
 - Requires Enterprise tier
 
 **Priority:** P2
 
-### FR-05: Webhook CRUD
+### FR-05: Local Webhook Configuration CRUD
 
-**Description:** The `webhook_manage` tool supports four actions: create, list, update, delete. All operations interact with the SearchCarriers Carrier Watch webhook API.
+**Description:** The `webhook_manage` tool supports create, list, update, and
+delete against a local JSON configuration. SearchCarriers does not currently
+publish remote webhook CRUD routes.
 
 **Acceptance Criteria:**
-- `create`: accepts URL, event types array, optional webhook secret; returns webhook ID
-- `list`: returns all configured webhooks with ID, URL, events, status
-- `update`: accepts webhook ID and fields to update (URL, events, active flag)
+- `create`: accepts URL and event types; returns a local webhook ID
+- `list`: returns configured records with ID, URL, and events
+- `update`: accepts webhook ID and URL and/or events
 - `delete`: accepts webhook ID, confirms deletion, returns success/failure
-- URL validation: must be HTTPS, must be a valid URL format
-- Event types validated against known SearchCarriers event type list
+- URL validation: must begin with HTTP or HTTPS
+- Does not transmit events or prove remote registration
 - All actions require SMB tier
 
 **Priority:** P1
@@ -167,21 +169,21 @@ As an **IT manager**, I want to **create, list, update, and delete Carrier Watch
 
 ## MVP Scope
 
-Historical v0.1.0 planning scope:
+Current implemented scope:
 
-- [ ] `api_health` -- endpoint probing with response times and rate limit status
-- [ ] `bulk_lookup` -- batch carrier lookups (basic and standard sections)
-- [ ] `webhook_manage` -- create, list, update, delete webhook endpoints
-- [ ] `tms_sync` (export only) -- generic CSV and JSON export
-- [ ] Tier gating on all four tools
-- [ ] Structured JSON output with meta blocks
-- [ ] Error handling for 401, 403, 404, 429, 504
+- [x] `api_health` -- endpoint probing with response times and rate limit status
+- [x] `bulk_lookup` -- bounded batch carrier lookups with per-record isolation
+- [x] `webhook_manage` -- local configuration create, list, update, and delete
+- [x] `tms_sync` -- one-record import translation and export field mapping
+- [x] Tier gating on all four tools
+- [x] Structured JSON output with pipeline metadata
+- [x] Structured API errors
 
 Deferred to v0.2.0:
 
-- `tms_sync` import mode (reverse mapping + diff detection)
-- McLeod and TMW specific export formats (v0.1 ships generic CSV)
-- `bulk_lookup` full section (search + authorities + insurance)
+- Live TMS reconciliation, approved writes, reread, and rollback
+- Remote webhook registration and delivery receipts
+- CSV/file serialization owned by a dedicated export workflow
 - Configurable progress reporting intervals
 - Batch size auto-tuning based on rate limit headroom
 
@@ -192,7 +194,7 @@ Deferred to v0.2.0:
 | Bulk lookup throughput (100 DOTs, basic) | Target: < 45 seconds | Timer across batch with rate limiting |
 | Bulk lookup throughput (100 DOTs, standard) | Target: < 90 seconds | Timer across batch with rate limiting |
 | API health check latency | Target: < 10 seconds | Timer across 5 endpoint probes |
-| Webhook CRUD latency | Target: < 2 seconds per operation | Timer per API call |
+| Local webhook CRUD latency | Target: < 2 seconds per operation | Timer per local operation |
 | TMS export accuracy | Target: 100% field mapping correctness | Integration test against known carrier data |
 | Error isolation rate | Target: 100% (one failed DOT never aborts the batch) | Unit tests with mixed success/failure inputs |
 | Tier gate accuracy | Target: 100% | Integration tests |
@@ -200,8 +202,8 @@ Deferred to v0.2.0:
 ## Dependencies
 
 - **SearchCarriers REST API v1** -- all tools depend on API availability at `https://searchcarriers.com/api/v1`
-- **SearchCarriers Carrier Watch API** -- `webhook_manage` depends on webhook CRUD endpoints
+- **Local filesystem** -- `webhook_manage` stores routing configuration under the user's home directory
 - **Valid API key** -- `SEARCHCARRIERS_API_KEY` environment variable with SMB or Enterprise tier permissions
-- **MCP protocol** -- plugin runs as an MCP server; requires Claude Code with MCP support
+- **MCP protocol** -- plugin runs as an MCP server; requires Grok Build, Claude Code, or another MCP-capable client
 - **httpx** -- async HTTP client for API calls
 - **No dependency on other plugins** -- API Bridge is a standalone integration plugin. It can consume output from Carrier Intel (e.g., passing carrier_profile data to tms_sync), but does not require any other plugin to function.

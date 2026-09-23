@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 import httpx
+import pytest
 import respx
 
 _repo_root = Path(__file__).parent.parent
@@ -25,7 +26,14 @@ from risk_engine_mcp import (  # noqa: E402
     _compliance_audit,
     _insurance_check,
     _qualification_reports,
+    _risk_level,
     _risk_score,
+    _score_authority,
+    _score_crash_rate,
+    _score_insurance,
+    _score_oos_rate,
+    _score_operating_status,
+    _score_safety_rating,
     _vetting_check,
 )
 
@@ -45,6 +53,7 @@ def _vetting_args(**rule_overrides):
         "rules": {**EXPLICIT_RULES, **rule_overrides},
     }
 
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -57,6 +66,78 @@ def _mock_standard_routes(router, carrier, authorities, insurances, dot="1234567
         return_value=httpx.Response(200, json=authorities)
     )
     router.get(f"/company/{dot}/insurances").mock(return_value=httpx.Response(200, json=insurances))
+
+
+class TestRiskFactorBoundaries:
+    """Pin each documented risk band and missing-data outcome."""
+
+    @pytest.mark.parametrize(
+        ("carrier", "penalty"),
+        [
+            ({"operatingStatus": "Authorized for Property"}, 0),
+            ({"operatingStatus": "Not Authorized"}, 30),
+            ({"operatingStatus": "Pending"}, 15),
+        ],
+    )
+    def test_operating_status(self, carrier, penalty):
+        assert _score_operating_status(carrier)[0] == penalty
+
+    @pytest.mark.parametrize(
+        ("rating", "penalty"),
+        [("Satisfactory", 0), ("Unsatisfactory", 25), ("Conditional", 15), (None, 10)],
+    )
+    def test_safety_rating(self, rating, penalty):
+        assert _score_safety_rating({"rating": rating})[0] == penalty
+
+    @pytest.mark.parametrize(
+        ("rate", "penalty"),
+        [("invalid", 5), (0, 0), (25, 6), (36, 12), (47, 20), (10, 0)],
+    )
+    def test_vehicle_oos_bands(self, rate, penalty):
+        assert _score_oos_rate({"oosRate": rate})[0] == penalty
+
+    @pytest.mark.parametrize(
+        ("crashes", "units", "penalty"),
+        [("bad", 10, 5), (1, 0, 5), (0, 10, 0), (2, 10, 0), (3, 10, 6), (6, 10, 12), (11, 10, 20)],
+    )
+    def test_crash_rate_bands(self, crashes, units, penalty):
+        carrier = {"crashTotal": crashes, "totalPowerUnits": units}
+        assert _score_crash_rate(carrier)[0] == penalty
+
+    def test_insurance_missing_inactive_and_active(self):
+        assert _score_insurance([])[0] == 20
+        assert _score_insurance([{"status": "Cancelled"}])[0] == 20
+        assert _score_insurance([{"status": "Active"}])[0] == 0
+
+    def test_authority_missing_revoked_mixed_active_and_unknown(self):
+        assert _score_authority([])[0] == 20
+        assert _score_authority([{"status": "Revoked", "type": "Common"}])[0] == 20
+        assert (
+            _score_authority(
+                [
+                    {"status": "Active", "type": "Common"},
+                    {"status": "Revoked", "type": "Broker"},
+                ]
+            )[0]
+            == 8
+        )
+        assert _score_authority([{"status": "Active", "type": "Common"}])[0] == 0
+        assert _score_authority([{"status": "Pending", "type": "Common"}])[0] == 10
+
+    @pytest.mark.parametrize(
+        ("score", "level"),
+        [
+            (0, "low"),
+            (25, "low"),
+            (26, "medium"),
+            (50, "medium"),
+            (51, "elevated"),
+            (75, "elevated"),
+            (76, "high"),
+        ],
+    )
+    def test_risk_level_boundaries(self, score, level):
+        assert _risk_level(score) == level
 
 
 # ---------------------------------------------------------------------------
@@ -274,12 +355,10 @@ class TestQualificationReports:
             ]
         }
         with respx.mock(assert_all_called=True) as router:
-            route = router.get(
-                f"{API_V2_BASE}/company/1234567/qualification-reports"
-            ).mock(return_value=httpx.Response(200, json=payload))
-            result = await _qualification_reports(
-                {"dot_number": "1234567"}, fake_api_key
+            route = router.get(f"{API_V2_BASE}/company/1234567/qualification-reports").mock(
+                return_value=httpx.Response(200, json=payload)
             )
+            result = await _qualification_reports({"dot_number": "1234567"}, fake_api_key)
 
         assert route.called
         assert result["api_version"] == "v2"

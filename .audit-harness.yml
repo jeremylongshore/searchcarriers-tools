@@ -1,0 +1,19 @@
+disable: false
+
+# Nested plugin manifests and local stdio services are the executable product.
+# The generic classifier detects their MCP/skill/agent surfaces but cannot infer
+# these two repository roles from nested paths alone.
+classify_pins:
+  - service
+  - plugin
+
+# New harness gates remain advisory until their false-positive rate is measured
+# and an engineer promotes them in tests/TESTING.md.
+advisory:
+  - audit-harness:ci:crap-score
+  - audit-harness:ci:integration
+  - audit-harness:ci:contract
+  - audit-harness:ci:migration
+  - audit-harness:ci:sast
+  - audit-harness:ci:sbom-syft
+  - audit-harness:ci:perf

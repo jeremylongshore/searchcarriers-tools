@@ -14,7 +14,7 @@
 - [ ] SearchCarriers account with Pro+ tier -- upgrade at [searchcarriers.com/pricing](https://searchcarriers.com/pricing)
 - [ ] API key generated at [searchcarriers.com/settings/api-tokens](https://searchcarriers.com/settings/api-tokens)
 - [ ] API key set in environment: `export SEARCHCARRIERS_API_KEY="your_id|your_token"`
-- [ ] Claude Code installed with MCP support
+- [ ] Grok Build, Claude Code, or another MCP-capable client installed
 - [ ] Watchdog plugin installed: copy `searchcarriers-watchdog/` to `.claude/plugins/` or configure in `.mcp.json`
 
 ## Step-by-Step Walkthrough
@@ -28,7 +28,7 @@ Add DOT 69494 to my watch list
 ```
 
 **What happens behind the scenes:**
-1. Claude invokes `manage_watchlist` with `action="add"` and `dot_number="69494"`
+1. the MCP client invokes `manage_watchlist` with `action="add"` and `dot_number="69494"`
 2. The MCP server checks tier: user must be Pro+
 3. API call: `POST /api/v1/company/69494/watch` with body `{ "watch_types": ["all"] }`
 4. Carrier Watch API confirms the addition and returns carrier details
@@ -75,7 +75,7 @@ Show me my carrier watch list
 ```
 
 **What happens behind the scenes:**
-1. Claude invokes `manage_watchlist` with `action="list"`
+1. the MCP client invokes `manage_watchlist` with `action="list"`
 2. API call: `GET /api/v1/company/watch`
 3. Returns all watched carriers with details
 
@@ -105,54 +105,30 @@ Mike sees all 12 carriers on his critical list. Three have no safety rating (new
 
 ### Step 3: Check for Alerts
 
-Two weeks later, Mike's morning routine includes checking for carrier alerts.
+Two weeks later, Mike asks the plugin for carrier alerts.
 
 ```
 Any alerts on my watched carriers in the last 24 hours?
 ```
 
 **What happens behind the scenes:**
-1. Claude invokes `get_alerts` with `hours=24`
+1. the MCP client invokes `get_alerts` with `hours=24`
 2. `get_alerts` returns `endpoint_unavailable`; the published API has no alert-feed route.
-3. Returns alerts sorted by severity and timestamp
+3. The MCP client directs Mike to the notification channel configured in SearchCarriers.
 
 **Expected output:**
 
 ```
-CARRIER WATCH ALERTS (last 24 hours)
-=====================================
+Alert feed unavailable through the published API.
 
-3 alerts found:
-
-CRITICAL
---------
-  [1] INSURANCE CANCELLED -- COLD STAR LOGISTICS LLC (DOT 3456789)
-      Change: Cargo insurance policy CANCELLED
-      Previous: $100,000 coverage (Active, expires 2026-03-20)
-      Current:  No active cargo insurance on file
-      Detected: 2026-03-15 08:14:00 UTC
-      Action:   DO NOT TENDER loads to this carrier until coverage is confirmed
-
-WARNING
--------
-  [2] SAFETY RATING DOWNGRADE -- MIDWEST FREIGHT SERVICES INC (DOT 1872034)
-      Change: Safety rating changed from Conditional to Unsatisfactory
-      Previous: Conditional (since 2025-06-01)
-      Current:  Unsatisfactory (since 2026-03-14)
-      Detected: 2026-03-15 06:30:00 UTC
-      Action:   Review carrier qualification; Unsatisfactory rating may disqualify
-
-INFO
-----
-  [3] MCS-150 FILED -- EAGLE TRANSPORT SERVICES LLC (DOT 2890345)
-      Change: MCS-150 biennial update filed
-      Previous: Filed 2024-03-15 (overdue)
-      Current:  Filed 2026-03-14 (current)
-      Detected: 2026-03-15 04:15:00 UTC
-      Action:   No action required; this is a positive compliance indicator
+Available watch routes configure the watched carrier and event types. They do
+not provide alert history. Review the email, webhook, or other delivery channel
+configured in SearchCarriers, then pass the received event to route_alert.
 ```
 
-Mike sees three alerts. The critical one is immediately actionable -- Cold Star's cargo insurance was cancelled. He needs to stop tendering loads to them right now and notify his dispatch team.
+Mike does not receive invented alert records or a false claim that monitoring
+configuration proves notification delivery. The next step assumes he has an
+event from a configured external delivery channel.
 
 ### Step 4: Route the Critical Alert to Slack
 
@@ -163,7 +139,7 @@ Format alert 1 for Slack
 ```
 
 **What happens behind the scenes:**
-1. Claude invokes `route_alert` with the alert data and `channel="slack"`
+1. the MCP client invokes `route_alert` with the alert data and `channel="slack"`
 2. The formatter builds Slack Block Kit JSON with severity coloring
 3. Returns the formatted blocks array
 
@@ -276,7 +252,7 @@ Show me the compliance drift for DOT 3456789 over the last 6 months
 ```
 
 **What happens behind the scenes:**
-1. Claude invokes `monitor_compliance` with `dot_number="3456789"` and `days=180`
+1. the MCP client invokes `monitor_compliance` with `dot_number="3456789"` and `days=180`
 2. Fetch current company, authority, and insurance data for DOT 3456789.
 3. Drift analyzer categorizes each change event and computes the trend
 

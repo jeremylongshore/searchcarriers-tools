@@ -10,13 +10,13 @@ How this plugin fits in the SearchCarriers ecosystem. Which pipeline stage (INPU
 |-----------|---------------|
 | MCP Server | API calls + tier gating |
 | Commands | User-facing slash commands |
-| Skill | Claude instructions for interpretation |
+| Skill | the MCP client instructions for interpretation |
 | Agent | Autonomous analysis workflow |
 
 ## Data Flow
 
 ```
-User Command -> MCP Tool -> SC API -> Raw Data -> Claude Interpretation -> Formatted Output
+User Command -> MCP Tool -> SC API -> Raw Data -> the MCP client Interpretation -> Formatted Output
 ```
 
 Input contract: What data this plugin accepts.
