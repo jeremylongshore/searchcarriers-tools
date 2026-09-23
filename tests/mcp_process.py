@@ -41,12 +41,14 @@ async def initialize_and_list(repo_root: Path, server_name: str):
     """Start one server, initialize JSON-RPC, and return its advertised tools."""
     parameters = server_parameters(repo_root, server_name)
 
-    async with asyncio.timeout(15):
+    async def initialize():
         async with stdio_client(parameters) as (read_stream, write_stream):
             async with ClientSession(read_stream, write_stream) as session:
                 initialization = await session.initialize()
                 tools = (await session.list_tools()).tools
-    return initialization, tools
+                return initialization, tools
+
+    return await asyncio.wait_for(initialize(), timeout=15)
 
 
 async def call_tool(
@@ -54,10 +56,13 @@ async def call_tool(
 ):
     """Call a tool through JSON-RPC and parse the server's JSON text envelope."""
     parameters = server_parameters(repo_root, server_name, tier=tier)
-    async with asyncio.timeout(15):
+
+    async def invoke():
         async with stdio_client(parameters) as (read_stream, write_stream):
             async with ClientSession(read_stream, write_stream) as session:
                 await session.initialize()
-                result = await session.call_tool(tool_name, arguments)
+                return await session.call_tool(tool_name, arguments)
+
+    result = await asyncio.wait_for(invoke(), timeout=15)
     assert not result.isError
     return json.loads(result.content[0].text)
