@@ -6,7 +6,7 @@ Single carrier lookups solve the individual broker's problem. But operations tea
 
 The current process at a 500-carrier brokerage looks like this. The compliance team exports a list of DOT numbers from their TMS. An analyst opens FMCSA SAFER, types each DOT into the search box, copies the results into a spreadsheet, and repeats 500 times. This takes two to three full working days. Then someone reformats the spreadsheet into the TMS import template -- different column names, different date formats, different status codes. Another half day. If any carrier's data changed since the last re-qualification, nobody knows until the next cycle.
 
-For organizations that have adopted SearchCarriers and the Carrier Intel plugin, individual lookups are fast. But running 500 individual `carrier_lookup` commands is still manual, still sequential, and still disconnected from their TMS. The data lives in Claude's context but not in the system of record where dispatch and operations need it.
+For organizations that have adopted SearchCarriers and the Carrier Intel plugin, individual lookups are fast. But running 500 individual `carrier_lookup` commands is still manual, still sequential, and still disconnected from their TMS. The data lives in the model client's context but not in the system of record where dispatch and operations need it.
 
 The API Bridge plugin closes this gap. Bulk operations, TMS-ready exports, API health monitoring, and webhook management -- the integration layer that connects SearchCarriers to enterprise freight operations.
 
@@ -50,7 +50,7 @@ The primary value is turning batch carrier operations from a multi-day manual pr
 | API health monitoring | Yes (endpoint-level) | No | No | Status page only | No |
 | Webhook management via CLI | Yes (CRUD) | Web UI only | N/A | N/A | N/A |
 | Rate limit visibility | Yes (on-demand) | No | No | No | No |
-| Works in terminal/IDE | Yes (Claude Code native) | No | No | No | No |
+| Works in terminal/IDE | Yes (MCP-native) | No | No | No | No |
 
 **Key differentiator**: API Bridge is the only carrier data integration tool that operates from a developer's terminal. IT teams building carrier data pipelines get bulk operations, TMS formatting, health monitoring, and webhook management without writing custom integration code or navigating web dashboards.
 

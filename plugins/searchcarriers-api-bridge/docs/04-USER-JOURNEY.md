@@ -14,7 +14,7 @@
 - [ ] SearchCarriers account with Enterprise tier -- upgrade at [searchcarriers.com/pricing](https://searchcarriers.com/pricing)
 - [ ] API key generated at [searchcarriers.com/settings/api-tokens](https://searchcarriers.com/settings/api-tokens)
 - [ ] API key set in environment: `export SEARCHCARRIERS_API_KEY="your_id|your_token"`
-- [ ] Claude Code installed with MCP support
+- [ ] Grok Build, Claude Code, or another MCP-capable client installed
 - [ ] API Bridge plugin installed: configure in `.mcp.json` or copy to plugins directory
 - [ ] (Recommended) Carrier Intel plugin installed for individual follow-up lookups
 
@@ -29,7 +29,7 @@ Check the SearchCarriers API health
 ```
 
 **What happens behind the scenes:**
-1. Claude invokes `api_health`
+1. the MCP client invokes `api_health`
 2. MCP server checks tier: user must be SMB or above (Enterprise qualifies)
 3. Health checker probes 5 API endpoints using DOT 69494 (Werner, known-good carrier)
 4. Response times measured, rate limit headers parsed, status computed
@@ -79,7 +79,7 @@ Run a bulk lookup on these 50 DOT numbers with standard sections:
 ```
 
 **What happens behind the scenes:**
-1. Claude invokes `bulk_lookup` with 50 DOT numbers and `sections="standard"`
+1. the MCP client invokes `bulk_lookup` with 50 DOT numbers and `sections="standard"`
 2. MCP server checks tier: SMB or above (Enterprise qualifies)
 3. Batch processor initializes: 50 DOTs x 2 API calls each = 100 total API calls
 4. Rate limiter: 3 req/s means ~34 seconds estimated runtime
@@ -139,7 +139,7 @@ Export the bulk lookup results to CSV format
 ```
 
 **What happens behind the scenes:**
-1. Claude passes the bulk_lookup results to `tms_sync` with `action="export"` and `format="csv"`
+1. the MCP client passes the bulk_lookup results to `tms_sync` with `action="export"` and `format="csv"`
 2. MCP server checks tier: Enterprise required for tms_sync (yes)
 3. TMS Mapper generates CSV with standard column headers
 4. Column headers may need manual mapping in McLeod's import configuration
@@ -178,7 +178,7 @@ pointing to https://hooks.pacificfreight.com/carrier-alerts
 ```
 
 **What happens behind the scenes:**
-1. Claude invokes `webhook_manage` with `action="create"`, URL, and event types
+1. the MCP client invokes `webhook_manage` with `action="create"`, URL, and event types
 2. MCP server checks tier: SMB or above (Enterprise qualifies)
 3. URL validated: HTTPS, valid format
 4. Event types validated: `authority_change` and `insurance_change` are known types
@@ -394,7 +394,7 @@ A: Depends on batch size and section depth. At the API's 3 req/s rate limit: 100
 A: v0.1 ships with generic CSV and JSON export. McLeod LoadMaster and TMW Suite specific formats are planned for v0.2. The generic CSV format works with most TMS platforms that support CSV import -- column headers may need manual mapping in the TMS configuration.
 
 **Q: Does API Bridge write files to disk?**
-A: No. All output is returned as text content in Claude's context. CSV and JSON exports are returned as strings. You copy the content and save it to a file yourself, or ask Claude to save it. The MCP server does not create files on the filesystem.
+A: No. All output is returned as text content in the model client's context. CSV and JSON exports are returned as strings. You copy the content and save it to a file yourself, or ask the model client to save it. The MCP server does not create files on the filesystem.
 
 **Q: Can I use bulk_lookup results with other plugins?**
 A: Yes. Bulk lookup results are structured JSON that Carrier Intel, Risk Engine, and Ops Reporter can consume. For example, you can run a bulk lookup, then pass individual carrier results to Risk Engine for scoring, then to Ops Reporter for formatted reports. The pipeline plugins work on single carriers, so you would process the bulk results one at a time through the pipeline.

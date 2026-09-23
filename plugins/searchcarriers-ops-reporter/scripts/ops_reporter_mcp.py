@@ -1250,7 +1250,10 @@ async def _export_data(arguments: dict[str, Any], api_key: str) -> dict[str, Any
     dot: str = str(arguments["dot_number"]).strip()
     fmt: str = str(arguments.get("format", "json")).lower()
     if fmt not in ("json", "csv", "markdown"):
-        fmt = "json"
+        return _error_payload(
+            "invalid_format",
+            f"format must be 'json', 'csv', or 'markdown'; got '{fmt}'.",
+        )
 
     all_sections = ["basics", "authorities", "insurances", "equipment"]
     raw_sections: list[Any] = arguments.get("sections") or all_sections

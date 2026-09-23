@@ -6,7 +6,7 @@ argument-hint: '[DOT, docket, VIN, carrier list, or workflow input]'
 version: 0.3.0
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: Apache-2.0
-compatibility: Designed for Claude Code and MCP-capable clients; requires Python 3.10+, network access to searchcarriers.com, and an eligible SearchCarriers plan.
+compatibility: Designed for Grok Build, Claude Code, and other MCP-capable clients; requires Python 3.10+, network access to searchcarriers.com, and an eligible SearchCarriers plan.
 metadata:
   tier: smb
 tags:

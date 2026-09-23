@@ -599,6 +599,12 @@ Risk Engine is the fastest stage in the pipeline. All tools with pre-fetched dat
 
 ## Deployment
 
+> **Multi-client path:** From the repository root, run `./scripts/setup-dev.sh`,
+> export `SEARCHCARRIERS_API_KEY`, and let Grok Build, Claude Code, or another
+> MCP client load the root `.mcp.json`. The client-specific copy steps below
+> describe optional Claude plugin packaging. See
+> [`MODEL-COMPATIBILITY.md`](../../../MODEL-COMPATIBILITY.md).
+
 ### Installation
 
 1. Ensure Carrier Intel is installed (Risk Engine depends on it for data):

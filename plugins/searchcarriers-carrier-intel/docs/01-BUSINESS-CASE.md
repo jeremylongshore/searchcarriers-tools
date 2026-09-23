@@ -26,7 +26,7 @@ The primary buyer is the freight brokerage with 10 to 500 employees. They have t
 
 - **TAM**: ~35,000 freight brokerages and 3PLs in the US (FMCSA active broker authorities), plus ~15,000 active shippers with dedicated transportation departments. Approximately 50,000 organizations that regularly vet motor carriers.
 - **SAM**: Organizations already using or willing to adopt API-based carrier data tools. Estimated 8,000 to 12,000 companies currently using Carrier411, Highway, DAT carrier monitoring, or similar paid vetting tools.
-- **SOM**: SearchCarriers existing user base plus new users attracted by the Claude Code integration. Year 1 target: 200 to 500 active API subscribers driven by plugin adoption.
+- **SOM**: SearchCarriers existing user base plus new users attracted by the model-client integration. Year 1 target: 200 to 500 active API subscribers driven by plugin adoption.
 
 ## Efficiency Gains
 
@@ -46,7 +46,7 @@ The primary efficiency gain is eliminating manual data gathering. Brokers spend 
 | Capability | SearchCarriers + Carrier Intel | Manual FMCSA/SAFER | Carrier411 | Highway | DAT Carrier Watch |
 |-----------|-------------------------------|--------------------|-----------|---------|--------------------|
 | Natural language lookup | Yes ("look up JB Hunt") | No (form fields only) | No | No | No |
-| CLI/developer workflow | Yes (Claude Code native) | No (browser only) | No | API available | API available |
+| CLI/developer workflow | Yes (MCP-native) | No (browser only) | No | API available | API available |
 | Full profile aggregation | Yes (search + authority + insurance in one call) | No (3+ separate pages) | Partial | Yes | Partial |
 | Entity mapping (VIN-based) | Yes (find related companies) | No | No | Limited | No |
 | Pipeline chaining | Yes (auto-feeds Risk Engine and Ops Reporter) | No | No | No | No |
@@ -55,7 +55,7 @@ The primary efficiency gain is eliminating manual data gathering. Brokers spend 
 | Price (entry tier) | Free (basic lookup) | Free (slow, unreliable) | $35/mo+ | $99/mo+ | Included with DAT |
 | Works in terminal/IDE | Yes | No | No | No | No |
 
-**Key differentiator**: No other carrier data tool integrates with a developer's existing workflow. Brokers who use Claude Code (or whose tech teams build tools on Claude Code) get carrier data without leaving their terminal. The plugin turns carrier research from a context switch into a conversation.
+**Key differentiator**: No other carrier data tool integrates with a developer's existing workflow. Brokers who use an MCP-capable client (or whose tech teams build on one) get carrier data without leaving their terminal. The plugin turns carrier research from a context switch into a conversation.
 
 **Secondary differentiator**: Pipeline architecture. Carrier Intel is not a standalone tool -- it is the INPUT stage of a three-stage pipeline. Data flows automatically from lookup (Carrier Intel) to risk assessment (Risk Engine) to formatted report (Ops Reporter). No other carrier data platform offers this kind of automated chaining.
 
@@ -82,6 +82,6 @@ Carrier Intel drives SearchCarriers API subscription revenue through a tiered ac
 | Data freshness lag | Low | Medium -- FMCSA data can be 24-48 hours behind | Document sync frequency in user-facing output, add "last updated" timestamps to carrier profiles |
 | API rate limiting | Medium | Medium -- heavy users hit 3 req/s ceiling | Client-side request queuing, batch operations for bulk use cases, cache layer reduces redundant calls |
 | FMCSA source changes | Low | High -- upstream schema changes break field mappings | SearchCarriers abstracts FMCSA, so this risk is on their side. Monitor for carrier object field changes |
-| Competitor replication | Medium | Low -- anyone can wrap FMCSA data | Our moat is the pipeline architecture + Claude Code integration, not the raw data access |
-| Claude Code platform changes | Low | High -- MCP protocol changes could break plugin | Pin MCP protocol version, maintain backward compatibility, follow Anthropic's plugin changelog |
+| Competitor replication | Medium | Low -- anyone can wrap FMCSA data | Our moat is the pipeline architecture + the model-client integration, not the raw data access |
+| MCP client or protocol changes | Low | High -- MCP protocol changes could break plugin | Pin MCP protocol version, maintain backward compatibility, follow the MCP specification and supported client changelogs |
 | Low adoption / market fit | Medium | Medium -- developers may not be the buyers | Target tech-forward brokerages first, provide clear efficiency documentation for procurement justification |

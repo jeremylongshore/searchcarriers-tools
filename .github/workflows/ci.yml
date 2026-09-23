@@ -1,5 +1,8 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -13,6 +16,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install validation dependency
+        run: pip install pyyaml
+
       - name: Lint plugin.json files
         run: |
           find plugins -name "plugin.json" -exec python3 -m json.tool {} \; > /dev/null
@@ -23,7 +34,7 @@ jobs:
 
       - name: Check for secrets
         run: |
-          ! grep -rn "Bearer [0-9]\+|[A-Za-z0-9]" --include="*.py" --include="*.md" --include="*.json" \
+          ! grep -Ern "Bearer [0-9]+\|[A-Za-z0-9]" --include="*.py" --include="*.md" --include="*.json" \
             --exclude-dir=.git --exclude="API-DISCOVERY.md" . || \
             (echo "ERROR: Possible API key found in tracked files" && exit 1)
 
@@ -35,21 +46,61 @@ jobs:
   test:
     name: Test
     needs: validate
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: |
+          python -m pip install --upgrade pip "setuptools>=83"
+          pip install -e ".[dev]"
 
       - name: Run validation (verbose)
         run: ./scripts/validate.sh --verbose
 
-      - name: Run tests
-        run: pytest -v
+      - name: Run Ruff
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Run security checks
+        run: |
+          bandit -q -r plugins scripts -x tests -c pyproject.toml
+          pip-audit --local --skip-editable
+
+      - name: Verify audit harness and schemas
+        run: |
+          scripts/audit-harness verify
+          scripts/audit-harness conform .
+
+      - name: Scan proposed diff for weakened gates
+        if: github.event_name == 'pull_request'
+        run: git diff "origin/${{ github.base_ref }}...HEAD" | scripts/audit-harness escape-scan -
+
+      - name: Run tests with branch coverage
+        run: |
+          pytest -q \
+            --cov=plugins \
+            --cov-branch \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=80
+
+      - name: Run advisory harness audit
+        if: matrix.python-version == '3.12'
+        continue-on-error: true
+        run: |
+          scripts/audit-harness audit . --deep
+          scripts/audit-harness scan .
+          scripts/audit-harness currency .

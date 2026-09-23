@@ -1,0 +1,39 @@
+{
+  "mcpServers": {
+    "searchcarriers-api-bridge": {
+      "command": ".venv/bin/python",
+      "args": ["plugins/searchcarriers-api-bridge/scripts/api_bridge_mcp.py"],
+      "env": {
+        "SEARCHCARRIERS_API_KEY": "${SEARCHCARRIERS_API_KEY}"
+      }
+    },
+    "searchcarriers-carrier-intel": {
+      "command": ".venv/bin/python",
+      "args": ["plugins/searchcarriers-carrier-intel/scripts/carrier_intel_mcp.py"],
+      "env": {
+        "SEARCHCARRIERS_API_KEY": "${SEARCHCARRIERS_API_KEY}"
+      }
+    },
+    "searchcarriers-ops-reporter": {
+      "command": ".venv/bin/python",
+      "args": ["plugins/searchcarriers-ops-reporter/scripts/ops_reporter_mcp.py"],
+      "env": {
+        "SEARCHCARRIERS_API_KEY": "${SEARCHCARRIERS_API_KEY}"
+      }
+    },
+    "searchcarriers-risk-engine": {
+      "command": ".venv/bin/python",
+      "args": ["plugins/searchcarriers-risk-engine/scripts/risk_engine_mcp.py"],
+      "env": {
+        "SEARCHCARRIERS_API_KEY": "${SEARCHCARRIERS_API_KEY}"
+      }
+    },
+    "searchcarriers-watchdog": {
+      "command": ".venv/bin/python",
+      "args": ["plugins/searchcarriers-watchdog/scripts/watchdog_mcp.py"],
+      "env": {
+        "SEARCHCARRIERS_API_KEY": "${SEARCHCARRIERS_API_KEY}"
+      }
+    }
+  }
+}

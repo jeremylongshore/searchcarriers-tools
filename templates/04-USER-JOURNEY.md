@@ -11,7 +11,7 @@
 
 - [ ] SearchCarriers account at {tier} tier or above
 - [ ] API key set: `export SEARCHCARRIERS_API_KEY=your-key`
-- [ ] Plugin installed in Claude Code
+- [ ] Plugin installed in an MCP-capable client
 
 ## Step-by-Step Walkthrough
 

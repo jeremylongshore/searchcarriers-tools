@@ -2,7 +2,7 @@
 
 ## Goals
 
-1. **Enable natural language carrier research.** A user types "look up Werner Enterprises" or "find DOT 69494" and gets structured carrier data in seconds, without leaving Claude Code.
+1. **Enable natural language carrier research.** A user types "look up Werner Enterprises" or "find DOT 69494" and gets structured carrier data in seconds, without leaving an MCP-capable client.
 2. **Reduce carrier lookup time from minutes to seconds.** Single lookups complete in under 3 seconds. Full profiles (search + authorities + insurance) complete in under 5 seconds.
 3. **Standardize output for downstream plugins.** Every tool produces structured JSON that the Risk Engine and Ops Reporter can consume without transformation. Carrier Intel is the INPUT stage -- its output is the pipeline's raw material.
 4. **Make the Free tier genuinely useful.** Three of four tools work on Free. Users experience real value before hitting any paywall.
@@ -13,7 +13,7 @@
 2. **NOT doing risk scoring or safety assessment.** That is the Risk Engine plugin (pipeline stage 2). Carrier Intel retrieves data; Risk Engine interprets it. If a user asks "is this carrier safe?", Carrier Intel provides the raw safety fields -- Risk Engine provides the judgment.
 3. **NOT generating reports or formatted documents.** That is the Ops Reporter plugin (pipeline stage 3). Carrier Intel returns structured data; Ops Reporter turns it into vetting reports, comparison tables, and export files.
 4. **NOT implementing bulk operations.** Bulk carrier processing (CSV input, batch lookups) belongs to the API Bridge plugin. Carrier Intel handles single-carrier operations.
-5. **NOT storing or caching data persistently.** Data flows through the plugin and into Claude's context. No local database, no file-based cache, no PII storage.
+5. **NOT storing or caching data persistently.** Data flows through the plugin and into the model client's context. No local database, no file-based cache, no PII storage.
 
 ## User Stories
 
@@ -80,13 +80,15 @@ As a **operations manager**, I want to **see a carrier's fleet composition -- eq
 
 ### FR-02: Profile Aggregation
 
-**Description:** The `carrier_profile` tool takes a DOT number and makes three API calls in sequence: (1) `GET /search?dotNumber=` for core carrier data, (2) `GET /company/{dot}/authorities` for authority status, (3) `GET /company/{dot}/insurances` for insurance records. It combines all three into a single structured response.
+**Description:** The `carrier_profile` tool takes a DOT number and makes one v3
+field-selected search request for core carrier, authority, and insurance fields.
+It normalizes that response into one structured profile.
 
 **Acceptance Criteria:**
 - Returns a unified JSON object with `carrier`, `authorities`, and `insurances` sections
-- Handles cases where authority or insurance records are empty (carrier exists but has no recorded authorities/insurance)
-- Total response time under 5 seconds for all three API calls
-- Includes error details if any sub-request fails (partial results are acceptable)
+- Handles cases where authority or insurance records are empty
+- Total response time under 5 seconds for the profile request
+- Surfaces API and response-shape errors explicitly
 
 **Priority:** P0
 
@@ -178,6 +180,6 @@ Deferred to v0.2.0:
 
 - **SearchCarriers REST API v1** -- all four tools depend on API availability at `https://searchcarriers.com/api/v1`
 - **Valid API key** -- `SEARCHCARRIERS_API_KEY` environment variable must be set with a valid Laravel Sanctum bearer token
-- **MCP protocol** -- plugin runs as an MCP server; requires Claude Code with MCP support
+- **MCP protocol** -- plugin runs as an MCP server; requires Grok Build, Claude Code, or another MCP-capable client
 - **httpx** -- async HTTP client for API calls
 - **No dependency on other plugins** -- Carrier Intel is the INPUT stage and has zero upstream dependencies. Risk Engine and Ops Reporter depend on Carrier Intel's output, but not the reverse.

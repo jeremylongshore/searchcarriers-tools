@@ -47,7 +47,7 @@ The primary value is consistency and speed. Manual risk assessment is slow and s
 | MCS-150 compliance audit | Yes | No | Limited | No | No |
 | Current FMCSA data (nightly sync) | Yes (via SearchCarriers API) | Nightly batch | On-demand | Daily batch | Nightly batch |
 | Pipeline integration | Yes (Carrier Intel -> Risk Engine -> Ops Reporter) | Standalone | Standalone | Standalone | Standalone |
-| CLI / developer workflow | Yes (Claude Code native) | No | No | No | No |
+| CLI / developer workflow | Yes (MCP-native) | No | No | No | No |
 | Price (risk scoring) | $49/mo (Pro) | $35/mo+ | $99/mo+ | $200/mo+ | $15/mo+ |
 
 **Key differentiator**: Transparent, weighted composite scoring. Most competitors give a pass/fail or letter grade with no visibility into how the score was computed. Risk Engine returns the composite score AND the breakdown -- safety weight, insurance weight, authority weight, operational weight -- so the broker can see exactly why a carrier scored 62 instead of 85.

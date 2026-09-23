@@ -20,7 +20,7 @@ The freight industry calls this "set and forget" carrier management. It is the n
 | Compliance departments | Safety directors, regulatory compliance | Critical | Ongoing -- audit readiness requirements |
 | Risk managers | Contingent liability, claims prevention | High | Weekly -- carrier risk monitoring |
 
-The primary buyer is the operations manager or compliance lead at a mid-size 3PL or brokerage with 100 to 500 carriers on their approved panel. They are responsible for ensuring every carrier that touches their freight is authorized, insured, and safe -- every day, not just at onboarding. Today they have no automated way to do this. Carrier Watch on SearchCarriers.com already solves part of the problem through the web UI. This plugin makes that monitoring accessible through Claude Code, with programmable alert routing and compliance drift tracking.
+The primary buyer is the operations manager or compliance lead at a mid-size 3PL or brokerage with 100 to 500 carriers on their approved panel. They are responsible for ensuring every carrier that touches their freight is authorized, insured, and safe -- every day, not just at onboarding. Today they have no automated way to do this. Carrier Watch on SearchCarriers.com already solves part of the problem through the web UI. This plugin makes that monitoring accessible through an MCP-capable client, with programmable alert routing and compliance drift tracking.
 
 ## Market Size
 
@@ -46,7 +46,7 @@ The primary value is shifting from reactive to proactive carrier monitoring. Ins
 
 | Capability | SearchCarriers Watchdog | Carrier411 Monitoring | Highway Monitoring | DAT Carrier Watch | RMIS |
 |-----------|------------------------|----------------------|-------------------|-------------------|------|
-| Watch list via CLI/terminal | Yes (Claude Code native) | No | No | No | No |
+| Watch list via CLI/terminal | Yes (MCP-native) | No | No | No | No |
 | Multi-channel alert routing | Yes (Slack, Telegram, email, webhook) | Email only | Email, in-app | Email, in-app | Email |
 | Compliance drift over time | Yes (trend detection) | No | Limited | No | Yes (enterprise) |
 | Programmable alert formatting | Yes (per-channel formatting) | No | No | No | API only |
@@ -54,7 +54,7 @@ The primary value is shifting from reactive to proactive carrier monitoring. Ins
 | Pipeline integration | No (standalone -- works alongside pipeline plugins) | Standalone | Standalone | Standalone | Standalone |
 | Price | $99/mo (Pro+) | $35/mo+ | $99/mo+ | Included with DAT | $200/mo+ |
 
-**Key differentiator**: Watchdog is the only carrier monitoring tool that integrates into a developer workflow with programmable alert routing. A compliance manager can set up a watch list, configure Slack alerts for critical changes, and check compliance drift -- all from Claude Code. No browser tabs, no separate monitoring dashboards, no manual email filtering.
+**Key differentiator**: Watchdog is the only carrier monitoring tool that integrates into a developer workflow with programmable alert routing. A compliance manager can set up a watch list, configure Slack alerts for critical changes, and check compliance drift -- all from an MCP-capable client. No browser tabs, no separate monitoring dashboards, no manual email filtering.
 
 **Secondary differentiator**: Compliance drift monitoring. Most competitor tools send point-in-time alerts ("insurance lapsed"). Watchdog tracks changes over time, letting compliance teams see trends: is this carrier's safety record deteriorating? Have they had multiple insurance gaps? Is their MCS-150 chronically overdue? This longitudinal view is what auditors want.
 

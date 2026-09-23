@@ -3,6 +3,9 @@
 import sys
 from pathlib import Path
 
+from hypothesis import given
+from hypothesis import strategies as st
+
 _repo_root = Path(__file__).parent.parent
 sys.path.insert(0, str(_repo_root))
 sys.path.insert(
@@ -135,3 +138,15 @@ class TestWhitespace:
 
     def test_scac_with_spaces(self):
         assert _detect_search_type("  KLLM  ") == ("scac", "KLLM")
+
+
+class TestSearchTypeProperties:
+    """Properties that must hold across broad identifier input sets."""
+
+    @given(st.text(alphabet="0123456789", min_size=1, max_size=24))
+    def test_any_nonempty_digit_string_is_dot(self, query):
+        assert _detect_search_type(query) == ("dot", query)
+
+    @given(st.text(alphabet="0123456789", min_size=1, max_size=16))
+    def test_mc_prefix_is_case_insensitive_and_removed(self, digits):
+        assert _detect_search_type(f"mC{digits}") == ("mc", digits)

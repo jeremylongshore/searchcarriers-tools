@@ -12,7 +12,7 @@
 1. **NOT a document management system.** Ops Reporter generates reports. It does not store, version, organize, or search past reports. Report persistence is the user's responsibility -- save the output wherever your organization keeps compliance records.
 2. **NOT a printing or PDF service.** Reports are generated in Markdown format. If you need PDF, use a Markdown-to-PDF tool like pandoc. Ops Reporter does not manage print layouts, page breaks, or branded templates.
 3. **NOT a CRM or carrier management platform.** Ops Reporter does not track carrier relationships, communication history, or load assignment records. It produces point-in-time reports from live data.
-4. **NOT a data retrieval tool.** Ops Reporter does not call the SearchCarriers API directly for carrier data. It consumes structured output from Carrier Intel and Risk Engine. If data is not already in Claude's context, Claude orchestrates the upstream lookups automatically.
+4. **NOT a data retrieval tool.** Ops Reporter does not call the SearchCarriers API directly for carrier data. It consumes structured output from Carrier Intel and Risk Engine. If data is not already in the model client's context, the MCP client orchestrates the upstream lookups automatically.
 5. **NOT a notification or alerting system.** Ops Reporter does not monitor carriers or send alerts when conditions change. It generates reports on demand.
 
 ## User Stories
@@ -22,7 +22,7 @@
 As a **compliance manager**, I want to **generate a complete carrier vetting report from a single command**, so that **I can send a professional, standardized document to my operations team instead of spending 30 minutes assembling one by hand**.
 
 **Acceptance Criteria:**
-- Report generated from a DOT number (Claude handles upstream data fetching)
+- Report generated from a DOT number (the MCP client handles upstream data fetching)
 - Report includes all standard sections: company overview, safety, insurance, authority, risk assessment, recommendation
 - Risk scores and vetting verdicts from Risk Engine are embedded in the report
 - Report includes a generated timestamp and data source attribution
@@ -34,7 +34,7 @@ As a **compliance manager**, I want to **generate a complete carrier vetting rep
 As a **freight broker**, I want to **compare 2 to 5 carriers side-by-side on key metrics**, so that **I can make a load tendering decision based on objective data instead of gut feel or whoever answers the phone first**.
 
 **Acceptance Criteria:**
-- Accepts 2 to 5 DOT numbers (or carrier names that Claude resolves to DOTs)
+- Accepts 2 to 5 DOT numbers (or carrier names that the MCP client resolves to DOTs)
 - Produces a comparison table with columns for each carrier and rows for key metrics
 - Metrics include: safety rating, risk score, vehicle OOS rate, driver OOS rate, insurance coverage (BIPD, cargo), authority age, power units, driver count
 - Highlights the best and worst value in each metric row
@@ -225,5 +225,5 @@ Deferred to v0.2.0:
 - **Carrier Intel plugin** -- Ops Reporter consumes carrier data, authority records, insurance records, and fleet data from Carrier Intel's structured output. Required for all four tools.
 - **Risk Engine plugin** -- Ops Reporter embeds risk scores, vetting verdicts, insurance assessments, and compliance audits from Risk Engine. Required for `generate_report`; optional for other tools (they work with carrier data alone but produce richer output with risk data).
 - **Shared tier_gate module** -- `plugins/shared/tier_gate.py` provides the `check_tier` function used by all plugins.
-- **MCP protocol** -- Plugin runs as an MCP server; requires Claude Code with MCP support.
+- **MCP protocol** -- Plugin runs as an MCP server; requires Grok Build, Claude Code, or another MCP-capable client.
 - **No external dependencies beyond the pipeline** -- Ops Reporter does not call the SearchCarriers API. It formats data that has already been retrieved and analyzed.

@@ -12,7 +12,7 @@
 1. **NOT a compliance guarantee.** Risk Engine provides risk assessment tools, not legal certification. A PASS verdict from `vetting_check` does not mean the carrier is guaranteed safe. It means the carrier met the configured qualification criteria at the time of the check.
 2. **NOT legal advice.** Scores and verdicts are advisory. Brokers must exercise their own professional judgment. This is stated in every tool's output.
 3. **NOT a replacement for broker judgment.** A carrier with a risk score of 30 (low risk) can still cause a claim. A carrier with 75 (elevated risk) might be the best option for a specific lane. The score informs the decision; it does not make the decision.
-4. **NOT a data retrieval tool.** Risk Engine does not call the SearchCarriers API directly for carrier data. It consumes structured output from Carrier Intel. If a user asks for carrier data, Claude routes to Carrier Intel first, then passes the result to Risk Engine.
+4. **NOT a data retrieval tool.** Risk Engine does not call the SearchCarriers API directly for carrier data. It consumes structured output from Carrier Intel. If a user asks for carrier data, the MCP client routes to Carrier Intel first, then passes the result to Risk Engine.
 5. **NOT generating reports.** Formatted output (PDF, vetting reports, comparison tables) is the Ops Reporter plugin. Risk Engine produces structured JSON assessments that Ops Reporter consumes.
 
 ## User Stories
@@ -81,11 +81,10 @@ As a **compliance analyst**, I want to **audit a carrier's regulatory compliance
 
 | Score | Tier | Meaning |
 |-------|------|---------|
-| 0-20 | LOW | Strong safety record, full coverage, established authority |
-| 21-40 | MODERATE | Acceptable risk, minor concerns worth noting |
-| 41-60 | ELEVATED | Notable risk factors, recommend closer review |
-| 61-80 | HIGH | Significant concerns, proceed with caution |
-| 81-100 | CRITICAL | Multiple serious risk factors, strongly recommend alternative carrier |
+| 0-25 | LOW | Stronger observed posture under the modeled factors |
+| 26-50 | MEDIUM | Concerns worth human review |
+| 51-75 | ELEVATED | Significant modeled concerns requiring resolution |
+| 76-100 | HIGH | Highest modeled risk band; human decision required |
 
 **Priority:** P0
 
@@ -228,4 +227,4 @@ Deferred to v0.2.0:
 - **Carrier Intel plugin** -- Risk Engine consumes carrier data, authority records, and insurance records from Carrier Intel's structured output. If Carrier Intel is not available, Risk Engine cannot score carriers.
 - **SearchCarriers REST API v1** -- Indirectly, via Carrier Intel. Risk Engine does not make direct API calls in the standard pipeline flow. However, it may accept a DOT number and call Carrier Intel on behalf of the user.
 - **Shared tier_gate module** -- `plugins/shared/tier_gate.py` provides the `check_tier` function and `TOOL_TIERS` registry used by all plugins.
-- **MCP protocol** -- Plugin runs as an MCP server; requires Claude Code with MCP support.
+- **MCP protocol** -- Plugin runs as an MCP server; requires Grok Build, Claude Code, or another MCP-capable client.

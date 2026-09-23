@@ -2,9 +2,9 @@
 
 ## Goals
 
-1. **Enable carrier watch list management from Claude Code.** A user types "add DOT 69494 to my watch list" and the carrier is monitored for changes without leaving the terminal. List, add, and remove operations complete in under 3 seconds.
+1. **Enable carrier watch list management from an MCP-capable client.** A user types "add DOT 69494 to my watch list" and the carrier is monitored for changes without leaving the terminal. List, add, and remove operations complete in under 3 seconds.
 2. **Surface carrier changes as classified alerts.** When a watched carrier's insurance lapses, authority changes, or safety record shifts, Watchdog detects the change and presents it with clear severity classification. Alert retrieval completes in under 5 seconds.
-3. **Route alerts to the channels teams already use.** Slack, Telegram, email, and webhook -- Watchdog formats alerts for each channel's native message format. Formatted alerts are returned to Claude for delivery; Watchdog does not send messages directly.
+3. **Route alerts to the channels teams already use.** Slack, Telegram, email, and webhook -- Watchdog formats alerts for each channel's native message format. Formatted alerts are returned to the MCP client for delivery; Watchdog does not send messages directly.
 4. **Track compliance drift over time.** Beyond point-in-time alerts, Watchdog shows whether a carrier's compliance posture is improving, stable, or deteriorating. This longitudinal view is what compliance managers and auditors need.
 
 ## Non-Goals
@@ -237,6 +237,6 @@ Deferred to v0.2.0:
 
 - **SearchCarriers API** -- watch management uses the documented v1 company-watch routes; compliance monitoring reads current company data through the hybrid API contract. Alert formatting accepts validated external events because no alert-feed route is published.
 - **Valid API key with Pro+ tier** -- `SEARCHCARRIERS_API_KEY` environment variable must be set with a Pro+ tier Laravel Sanctum bearer token
-- **MCP protocol** -- plugin runs as an MCP server; requires Claude Code with MCP support
+- **MCP protocol** -- plugin runs as an MCP server; requires Grok Build, Claude Code, or another MCP-capable client
 - **httpx** -- async HTTP client for API calls
 - **No dependency on pipeline plugins** -- Watchdog is standalone. It does not consume output from Carrier Intel, Risk Engine, or Ops Reporter. It can be installed and used independently.
