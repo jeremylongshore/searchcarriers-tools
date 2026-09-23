@@ -93,6 +93,26 @@ class TestPluginStructure:
             for doc in DOC_FILES:
                 assert (docs / doc).exists(), f"{pd}/docs/{doc}: Missing from 6-doc set"
 
+    def test_every_skill_has_customer_one_pager(self, repo_root):
+        skill_files = [
+            path
+            for root in ("skills", "plugins", "workflows")
+            for path in (repo_root / root).glob("**/SKILL.md")
+        ]
+        assert len(skill_files) == 26
+        for skill_file in skill_files:
+            brief = skill_file.parent / "docs" / "ONE-PAGER.md"
+            pdf = skill_file.parent / "docs" / "ONE-PAGER.pdf"
+            assert brief.is_file(), f"{brief}: missing customer one-pager"
+            assert pdf.is_file(), f"{pdf}: missing white-glove customer PDF"
+            text = brief.read_text()
+            assert "## The customer pain" in text
+            assert "## Decision contract" in text
+            assert "## Operational follow-through" in text
+            skill_text = skill_file.read_text()
+            assert "[Customer one-pager](docs/ONE-PAGER.md)" in skill_text
+            assert "[Customer one-pager PDF](docs/ONE-PAGER.pdf)" in skill_text
+
 
 class TestTierGating:
     def test_tier_values_valid(self, all_plugin_jsons):

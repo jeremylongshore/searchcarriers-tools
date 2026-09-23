@@ -128,6 +128,8 @@ Route that request to the narrower SearchCarriers skill whose job matches it.
 
 ## Resources
 
+- [Customer one-pager](docs/ONE-PAGER.md)
+- [Customer one-pager PDF](docs/ONE-PAGER.pdf)
 - [Decision playbook](references/playbook.md)
 - [Repository API contract](https://github.com/jeremylongshore/searchcarriers-tools/blob/main/API-DISCOVERY.md)
 - [SearchCarriers public API](https://searchcarriers.com/docs/api)

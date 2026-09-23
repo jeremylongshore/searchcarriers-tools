@@ -189,6 +189,11 @@ echo "SearchCarriers Validator"
 echo "========================"
 echo ""
 
+if ! python3 scripts/generate_one_pagers.py --check; then
+    fail "Customer one-pagers are missing or stale"
+fi
+echo ""
+
 if [ "$PLUGINS_ONLY" != "true" ]; then
     echo "Skills:"
     skill_count=0

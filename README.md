@@ -20,6 +20,12 @@ sourceable evidence, visible unknowns, and a concrete next action.
 
 ## Start Here
 
+See the customer-facing capability map at
+**[demos.intentsolutions.io/searchcarriers](https://demos.intentsolutions.io/searchcarriers/)**.
+Every package also includes its own `docs/ONE-PAGER.md` and canonical
+white-glove `docs/ONE-PAGER.pdf`, linked directly from that package's
+`SKILL.md`.
+
 Open Claude Code in this repo and say:
 
     Walk me through getting started with SearchCarriers
@@ -109,7 +115,8 @@ chooses when to pass evidence between stages and remains the decision owner.
 ## Skill Catalog
 
 Fourteen skills are organized by carrier job. Each package includes a focused
-`SKILL.md`, a decision playbook, and a behavioral `eval-spec.yaml`.
+`SKILL.md`, customer one-pager and PDF, decision playbook, and behavioral
+`eval-spec.yaml`.
 
 ### Search & Discovery
 
@@ -203,36 +210,33 @@ The product research behind each workflow is recorded in
 
 ---
 
-## Premium Workflows
+## Composed Workflows
 
-Paid add-on workflows that chain multiple plugins together for automated carrier monitoring and reporting.
+Seven packaged workflows chain the focused skills and MCP tools into larger
+carrier operations. The tier names describe the required SearchCarriers API
+access; this repository does not sell or provision those subscriptions.
 
 ### Pro Tier
 
 | Workflow | What It Does | Plugins Used |
 |----------|-------------|--------------|
-| Daily Vetting Digest | Auto-vet all watched carriers, email pass/review/fail summary | ops-reporter + watchdog |
-| Inspection Alert Email | New inspection on a watched carrier triggers formatted email summary | watchdog |
-| Risk Score Change Alerts | Push notification when a carrier's safety rating changes | risk-engine + watchdog |
+| Daily Vetting Digest | Build a reconciled Pass/Review/Fail queue; delivery remains explicitly configured | risk-engine + ops-reporter |
 
 ### Pro+ Tier
 
 | Workflow | What It Does | Plugins Used |
 |----------|-------------|--------------|
-| Slack Carrier Watch | Format validated external carrier notifications for Slack | watchdog |
-| Telegram Bot Lookup | `/dot 12345` in Telegram returns carrier summary | carrier-intel + api-bridge |
-| Compliance Dashboard Email | Weekly compliance report across all watched carriers | ops-reporter + watchdog |
-| Insurance Lapse Alert | Slack/email when insurance cancellation is detected | watchdog + risk-engine |
+| Slack Carrier Watch | Validate and format an externally supplied change event for configured Slack delivery | watchdog |
+| Compliance Dashboard | Build an as-of panel dashboard that exposes stale, missing, and high-priority evidence | carrier-intel + risk-engine + watchdog |
+| Insurance Lapse Alert | Evaluate an insurance change or current filing and create a bounded response | risk-engine |
 
 ### SMB / Enterprise Tier
 
 | Workflow | What It Does | Plugins Used |
 |----------|-------------|--------------|
-| Bulk Vetting Pipeline | Upload CSV of 500+ carriers, get back vetting report with pass/fail | api-bridge + risk-engine + ops-reporter |
-| TMS Auto-Sync | Carrier status change auto-updates carrier record in TMS | api-bridge + watchdog |
-| Fleet Risk Dashboard | Automated weekly fleet risk analysis pushed to Slack/email | carrier-intel + risk-engine + ops-reporter + watchdog |
-| Carrier Panel Monitor | Monitor carrier panels, alert on changes | carrier-intel + watchdog |
-| Automated Onboarding | New carrier added to TMS triggers full vetting pipeline, results emailed to ops | api-bridge + risk-engine + ops-reporter |
+| Bulk Vetting Pipeline | Run named qualification across a carrier list with restartable evidence | api-bridge + risk-engine + ops-reporter |
+| TMS Auto-Sync | Apply an approved carrier change set idempotently and prove the result | api-bridge + carrier-intel + risk-engine |
+| Fleet Risk Dashboard | Rank a carrier panel by explicit, actionable evidence exceptions | carrier-intel + risk-engine + ops-reporter |
 
 ---
 
@@ -267,7 +271,7 @@ Open Claude Code and try:
 /sc-lookup Werner Enterprises
 ```
 
-You should see carrier identity, contact info, fleet size, and operating authority pulled from 4M+ companies.
+You should see carrier identity, contact information, fleet evidence, and operating authority with source and missing-data context.
 
 **Minute 4-6: Try a carrier profile.**
 
@@ -285,7 +289,7 @@ This pulls search results, insurance, authority status, and equipment data into 
 /sc-risk 69494
 ```
 
-The risk engine interprets raw safety data into a plain-language risk assessment with pass/review/fail recommendation.
+The risk engine returns sourced safety evidence and an advisory model result. A Pass/Review/Fail decision requires a named SearchCarriers qualification or a complete caller-owned policy.
 
 **Minute 8-10: Generate a vetting report (Pro tier).**
 
@@ -293,7 +297,7 @@ The risk engine interprets raw safety data into a plain-language risk assessment
 /sc-report 69494
 ```
 
-Produces a formatted vetting report combining carrier data, risk scores, and compliance status -- ready to share with your ops team.
+Produces a formatted vetting report that preserves the underlying verdict, missing evidence, sources, and decision owner.
 
 **What's next:** Add carriers to your watch list with `/sc-watch`, set up Slack alerts, or bulk-process a CSV of carriers with `/sc-bulk`.
 
