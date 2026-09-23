@@ -20,12 +20,30 @@ sys.path.insert(
 from conftest import assert_error_payload  # noqa: E402
 from risk_engine_mcp import (  # noqa: E402
     API_BASE,
+    API_V2_BASE,
     SEARCH_BASE,
     _compliance_audit,
     _insurance_check,
+    _qualification_reports,
     _risk_score,
     _vetting_check,
 )
+
+EXPLICIT_RULES = {
+    "operating_status": "authorized",
+    "min_insurance_coverage": 750_000,
+    "max_oos_rate": 30.0,
+    "max_crash_rate_per_pu": 0.5,
+    "authority_active": True,
+    "mcs150_current": True,
+}
+
+
+def _vetting_args(**rule_overrides):
+    return {
+        "dot_number": "1234567",
+        "rules": {**EXPLICIT_RULES, **rule_overrides},
+    }
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -165,7 +183,7 @@ class TestVettingCheck:
         """Response contains all required keys."""
         with respx.mock(base_url=API_BASE) as router:
             _mock_standard_routes(router, carrier_primary, authorities_sample, insurances_active)
-            result = await _vetting_check({"dot_number": "1234567"}, fake_api_key)
+            result = await _vetting_check(_vetting_args(), fake_api_key)
 
         for key in ("dot_number", "verdict", "rules_checked", "summary", "results", "_pipeline"):
             assert key in result, f"Missing key: {key}"
@@ -176,7 +194,7 @@ class TestVettingCheck:
         """Authorized carrier with good data gets PASS verdict."""
         with respx.mock(base_url=API_BASE) as router:
             _mock_standard_routes(router, carrier_primary, authorities_sample, insurances_active)
-            result = await _vetting_check({"dot_number": "1234567"}, fake_api_key)
+            result = await _vetting_check(_vetting_args(), fake_api_key)
 
         # Example Freight is authorized, has active authorities and insurance
         assert result["verdict"] in ("PASS", "REVIEW")
@@ -195,7 +213,7 @@ class TestVettingCheck:
             router.get("/company/1234567/insurances").mock(
                 return_value=httpx.Response(200, json=insurances_active)
             )
-            result = await _vetting_check({"dot_number": "1234567"}, fake_api_key)
+            result = await _vetting_check(_vetting_args(), fake_api_key)
 
         # No authority records → at least a REVIEW
         assert result["verdict"] in ("FAIL", "REVIEW")
@@ -206,7 +224,7 @@ class TestVettingCheck:
         """Summary pass+review+fail counts match total rules_checked."""
         with respx.mock(base_url=API_BASE) as router:
             _mock_standard_routes(router, carrier_primary, authorities_sample, insurances_active)
-            result = await _vetting_check({"dot_number": "1234567"}, fake_api_key)
+            result = await _vetting_check(_vetting_args(), fake_api_key)
 
         s = result["summary"]
         assert s["pass"] + s["review"] + s["fail"] == result["rules_checked"]
@@ -217,7 +235,7 @@ class TestVettingCheck:
         """Each rule result has required fields."""
         with respx.mock(base_url=API_BASE) as router:
             _mock_standard_routes(router, carrier_primary, authorities_sample, insurances_active)
-            result = await _vetting_check({"dot_number": "1234567"}, fake_api_key)
+            result = await _vetting_check(_vetting_args(), fake_api_key)
 
         for rule in result["results"]:
             for key in ("rule", "status", "actual", "threshold", "message"):
@@ -232,16 +250,41 @@ class TestVettingCheck:
         with respx.mock(base_url=API_BASE) as router:
             _mock_standard_routes(router, carrier_primary, authorities_sample, insurances_active)
             result = await _vetting_check(
-                {
-                    "dot_number": "1234567",
-                    "rules": {"min_insurance_coverage": 999_999_999},
-                },
-                fake_api_key,
+                _vetting_args(min_insurance_coverage=999_999_999), fake_api_key
             )
 
         # Should fail the insurance rule
         ins_rule = next(r for r in result["results"] if r["rule"] == "min_insurance_coverage")
         assert ins_rule["status"] == "fail"
+
+    async def test_missing_policy_is_rejected_before_api_call(self, fake_api_key):
+        result = await _vetting_check({"dot_number": "1234567"}, fake_api_key)
+        assert_error_payload(result, "invalid_policy")
+
+
+class TestQualificationReports:
+    async def test_preserves_upstream_named_results(self, fake_api_key):
+        payload = {
+            "data": [
+                {
+                    "name": "Refrigerated Customer",
+                    "result": "review",
+                    "evidence": [{"rule": "cargo", "status": "review"}],
+                }
+            ]
+        }
+        with respx.mock(assert_all_called=True) as router:
+            route = router.get(
+                f"{API_V2_BASE}/company/1234567/qualification-reports"
+            ).mock(return_value=httpx.Response(200, json=payload))
+            result = await _qualification_reports(
+                {"dot_number": "1234567"}, fake_api_key
+            )
+
+        assert route.called
+        assert result["api_version"] == "v2"
+        assert result["qualification_reports"] == payload["data"]
+        assert result["decision_owner"] == "upstream_named_qualification"
 
 
 # ---------------------------------------------------------------------------

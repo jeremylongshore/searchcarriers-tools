@@ -1,313 +1,132 @@
 ---
 name: searchcarriers-authority-checker
-description: Checks carrier operating authority status, types, and history to determine what a carrier can legally transport. Use when verifying a carrier's authority or investigating revocations.
-allowed-tools: Read,Grep,Bash(curl:*),Bash(python:*)
-metadata:
-  tier: free
-version: 0.2.0
+description: "Analyzes carrier evidence for operating authority verifier. Use when a user asks, \"Can DOT 1234567 legally haul this for-hire property\u2026\". Trigger with \"Can DOT 1234567 legally haul this\u2026\"."
+allowed-tools: Read, Bash(curl:*), Bash(python:*)
+argument-hint: '[DOT, docket, VIN, carrier list, or workflow input]'
+version: 0.3.0
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: Apache-2.0
-compatibility: Claude Code or another MCP-capable client; Python 3.10+; network access to searchcarriers.com; an appropriate SearchCarriers API subscription.
+compatibility: Designed for Claude Code and MCP-capable clients; requires Python 3.10+, network access to searchcarriers.com, and an eligible SearchCarriers plan.
+metadata:
+  tier: free
 tags:
 - searchcarriers
 - motor-carrier
-- vetting-risk
+- evidence
+- free
 ---
 
-# Authority Checker
+# Operating Authority Verifier
+
+Operating Authority Verifier helps an operator verify that the identified entity has the authority required for the intended job. It solves this operational failure: A valid DOT is not the same as active for-hire authority, and similar names or old dockets cause misidentification.
 
 ## Overview
 
-Operating authority is the legal permission granted by FMCSA that determines what a carrier, broker, or freight forwarder can do. A carrier with revoked authority is prohibited from operating. A broker without active authority cannot legally arrange transportation. Authority type determines scope — common authority allows for-hire carriage, contract authority allows carriage under specific contracts, and broker authority allows arranging transportation without asset ownership.
+The workflow is **identify → fetch → reconcile → decide → act**. API data is
+licensed research evidence, not an endorsement, official safety rating, or guarantee.
+Keep the human or named company policy as the decision owner.
 
-This skill fetches authority records and history from the SearchCarriers API, interprets authority types and statuses, flags risk indicators like recent grants, revocations, and chameleon carrier signals, and produces a clear authority assessment. It is the foundational check in any carrier vetting workflow.
+The bounded result is: Return AUTHORIZED FOR STATED USE, NOT AUTHORIZED, or REVIEW REQUIRED.
 
 ## Prerequisites
 
-- **Minimum tier**: Free
-- Environment variable `SEARCHCARRIERS_API_KEY` must be set with a valid API key (Free tier or above).
-- The carrier's DOT number must be known. If only an MC number or name is available, use the `/search` endpoint first to resolve the DOT number.
-- `curl` and optionally `python3` must be available in the execution environment.
+- Set `SEARCHCARRIERS_API_KEY` to a SearchCarriers bearer token with the required tier.
+- Confirm the subject identifier, intended movement or decision, and named policy when applicable.
+- Read [`API-DISCOVERY.md`](https://github.com/jeremylongshore/searchcarriers-tools/blob/main/API-DISCOVERY.md) with the `Read` tool before changing routes or parameters.
+- Use `Bash(curl:*)` for API requests and `Bash(python:*)` only for local JSON validation or deterministic reshaping.
+
+Authentication is `Authorization: Bearer $SEARCHCARRIERS_API_KEY`; never print,
+commit, or place the token in a URL. Do not commit live API responses.
 
 ## Instructions
 
-### Step 1: Resolve the Carrier DOT Number
+### Step 1: Define the decision
 
-If the user provides a DOT number, proceed to Step 2. Otherwise, resolve the identifier.
+Write one sentence naming the subject, the operational use, the evidence window,
+and who owns the final decision. If a policy threshold is required, obtain the
+named policy instead of inventing an “industry standard.”
 
-```bash
-# Search by MC number
-curl -s -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  "https://searchcarriers.com/api/v3/search?docketNumber=1672915"
+### Step 2: Resolve identity
 
-# Search by legal name
-curl -s -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  "https://searchcarriers.com/api/v3/search?superSearchTerm=SWIFT%20TRANSPORTATION"
+Prefer USDOT or docket identifiers. Treat name-only matches as ambiguous until
+legal name, location, and identifiers agree. Stop on conflicting identity.
 
-# Search by DOT number
-curl -s -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  "https://searchcarriers.com/api/v3/search?dotNumber=12345"
-```
+### Step 3: Fetch the smallest evidence set
 
-From the search response, extract `dot_number` and also note these carrier-level fields for later use:
-- `status_code` — Overall FMCSA status ("A" = active, "I" = inactive, etc.)
-- `prior_revoke_flag` — "Y" if the carrier previously operated under a different DOT that was revoked
-- `prior_revoke_dot_number` — The previous DOT number (chameleon carrier indicator)
-- `add_date` — When this DOT was registered with FMCSA
-- `carrier_operation` — Type of operation (interstate, intrastate, etc.)
-- `company_officers` — Names and titles of company officers
+**Routes/tools:** GET /api/v3/company/{dot}?fields=authorities,operation,insurance; GET /api/v1/authority/{docketNumber}/history
 
-### Step 2: Fetch Authority Records
+Confirm DOT and docket identity, state the intended role, inspect current authority by type, then read history for grants, revocations, and reinstatements.
+
+For a direct API request, use the documented route and selected fields:
 
 ```bash
-curl -s -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  "https://searchcarriers.com/api/v1/company/{dot}/authorities"
+curl --fail-with-body --get   "https://searchcarriers.com/api/v3/company/$DOT_NUMBER"   --header "Authorization: Bearer $SEARCHCARRIERS_API_KEY"   --header "Accept: application/json"   --data-urlencode "fields=contact,authorities,insurance,safety,operation,risk_factors"
 ```
 
-The response contains authority records with these key fields:
-- `broker_authority_status` — Status of broker authority: "authorized", "pending", "revoked", or null
-- `contract_authority_status` — Status of contract carrier authority
-- `common_authority_status` — Status of common (for-hire) carrier authority
-- `sub_types` — Object containing:
-  - `passenger` — Whether authorized for passenger transport
-  - `property` — Whether authorized for property (freight) transport
-  - `household_goods` — Whether authorized for household goods moves
-- `status_since_date` — When the current status took effect
-- `docket_number` — The MC, FF, or MX number assigned to this authority
+Use the specialty v1 or qualification v2 route listed above when the job requires
+it; never rewrite every route to the highest version.
 
-### Step 3: Interpret Authority Types
+### Step 4: Reconcile evidence
 
-Understanding authority types is essential for correct vetting:
+Capture: Legal identity, DOT/docket, required role, current authority type/status, history events, insurance linkage, and as-of timestamp.
 
-**Common Authority (MC Number)**
-- Grants the right to transport property or passengers **for hire** — meaning the carrier is paid by shippers/brokers.
-- Most trucking companies need common authority.
-- Sub-types determine what they can haul:
-  - **Property**: General freight, specialized commodities
-  - **Passenger**: Buses, charter services
-  - **Household Goods**: Moving companies (additional regulations apply under 49 CFR Part 375)
+Keep facts, policy tests, modeled indicators, and analyst judgment in separate
+fields. Preserve zeros; represent absent fields as `unknown` with a reason.
 
-**Contract Authority**
-- Allows a carrier to haul under specific, ongoing contracts with individual shippers.
-- Less common today; most carriers prefer common authority for flexibility.
-- A carrier can hold both common and contract authority simultaneously.
+### Step 5: Decide and prescribe the next action
 
-**Broker Authority (MC Number)**
-- Allows arranging transportation of freight without owning trucks.
-- Brokers must maintain a $75,000 surety bond (BMC-84) or trust fund (BMC-85).
-- A company can hold both carrier and broker authority under the same DOT.
+Return AUTHORIZED FOR STATED USE, NOT AUTHORIZED, or REVIEW REQUIRED.
 
-**Freight Forwarder Authority (FF Number)**
-- Allows assembling and consolidating shipments.
-- Freight forwarders take possession of freight and issue their own bill of lading.
-
-**Docket Number Prefixes**
-| Prefix | Meaning |
-|--------|---------|
-| MC | Motor Carrier or Broker |
-| FF | Freight Forwarder |
-| MX | Mexico-domiciled carrier (requires additional FMCSA registration) |
-
-### Step 4: Evaluate Authority Status
-
-For each authority type present, classify the status:
-
-| Status | Meaning | Vetting Impact |
-|--------|---------|----------------|
-| **Authorized** | Active, legal to operate | PASS |
-| **Pending** | Application submitted, not yet approved | REVIEW — cannot legally operate yet |
-| **Revoked** | Authority taken away by FMCSA | FAIL — cannot legally operate |
-| **Inactive** | Voluntarily deactivated | FAIL — not currently authorized |
-| **Not Authorized** | Never held this type | Neutral — only relevant if the carrier needs this type |
-
-### Step 5: Fetch Authority History
-
-Authority history reveals the timeline of status changes, which is critical for risk assessment.
-
-```bash
-# Fetch authority history (paginated)
-curl -s -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  "https://searchcarriers.com/api/v1/authority/{docketNumber}/history?page=1&perPage=50"
-```
-
-Analyze the history for these patterns:
-
-1. **Revocation followed by reinstatement**: This means the carrier lost authority (usually due to insurance lapse) and later regained it. One occurrence may be explainable; multiple occurrences are a red flag.
-
-2. **Recent grant date**: Calculate the age of the authority from `status_since_date` or the earliest "authorized" entry in history.
-   - **< 6 months**: Very new, high risk. Limited safety data available.
-   - **6-18 months**: New entrant. FMCSA New Entrant Safety Audit should be complete or pending.
-   - **18-36 months**: Established but still relatively young.
-   - **> 36 months**: Mature authority.
-
-3. **Multiple authority types added/removed**: Can indicate business model changes or instability.
-
-4. **Short-lived authorities**: Authority granted and revoked within a few months suggests inability to maintain insurance or compliance.
-
-### Step 6: Check for Chameleon Carrier Indicators
-
-Chameleon carriers are unsafe operators who shut down and reopen under a new DOT. Authority data provides key indicators:
-
-```python
-import json
-from datetime import datetime, timedelta
-
-
-def check_chameleon_risk(carrier, authority):
-    risks = []
-
-    # Check prior revocation flag
-    if carrier.get("prior_revoke_flag") == "Y":
-        prev_dot = carrier.get("prior_revoke_dot_number", "unknown")
-        risks.append(
-            {
-                "indicator": "PRIOR_REVOCATION",
-                "severity": "HIGH",
-                "detail": f"Carrier previously operated under DOT {prev_dot} which was revoked",
-            }
-        )
-
-    # Check authority age
-    add_date = datetime.strptime(carrier["add_date"], "%Y-%m-%d")
-    age_months = (datetime.now() - add_date).days / 30
-    if age_months < 18:
-        risks.append(
-            {
-                "indicator": "NEW_AUTHORITY",
-                "severity": "MEDIUM",
-                "detail": f"Authority is only {int(age_months)} months old (new entrant)",
-            }
-        )
-
-    # New authority + prior revocation = strong chameleon signal
-    if age_months < 18 and carrier.get("prior_revoke_flag") == "Y":
-        risks.append(
-            {
-                "indicator": "CHAMELEON_PATTERN",
-                "severity": "CRITICAL",
-                "detail": "New authority combined with prior revocation — strong chameleon carrier indicator",
-            }
-        )
-
-    return risks
-```
-
-### Step 7: Determine Required Authority for the Use Case
-
-Match the carrier's authority to what is needed:
-
-- **Hiring a carrier to haul freight**: Requires common or contract authority with property sub_type authorized.
-- **Hiring a broker to arrange freight**: Requires broker authority authorized.
-- **Hiring a carrier for a household goods move**: Requires common authority with household_goods sub_type authorized.
-- **Hiring a passenger carrier**: Requires common authority with passenger sub_type authorized.
-- **Mexico cross-border freight**: Requires MX docket number and appropriate authority.
-
-If the carrier lacks the required authority type for the intended use, this is an automatic **FAIL**.
-
-### Step 8: Build the Authority Report
-
-```
-AUTHORITY STATUS REPORT — DOT {dot_number}
-Carrier: {legal_name}
-Report Date: {today}
-FMCSA Status: {status_code}
-
-AUTHORITY TYPES
-  Common Authority: {status} (since {date})
-    Property: {authorized/not authorized}
-    Passenger: {authorized/not authorized}
-    Household Goods: {authorized/not authorized}
-  Contract Authority: {status} (since {date})
-  Broker Authority: {status} (since {date})
-  Docket Number: {MC/FF/MX}-{number}
-
-AUTHORITY AGE
-  DOT Registration Date: {add_date}
-  Authority Age: {X} months
-  Classification: {New Entrant / Established / Mature}
-
-HISTORY ANALYSIS
-  Total status changes: {count}
-  Revocations found: {count}
-  Reinstatements found: {count}
-  [Timeline of significant changes]
-
-CHAMELEON CARRIER CHECK
-  Prior Revocation Flag: {Y/N}
-  Prior DOT Number: {number or N/A}
-  Risk Level: {LOW / MEDIUM / HIGH / CRITICAL}
-
-OVERALL AUTHORITY VERDICT: PASS / FAIL / REVIEW
-[Explanation of verdict]
-```
-
-### Decision Logic
-
-- **FAIL** if:
-  - Required authority type is revoked or inactive
-  - Carrier status_code is not "A" (active)
-  - Carrier has no authority of any type
-- **REVIEW** if:
-  - Authority is less than 18 months old (new entrant)
-  - Prior revocation flag is set
-  - History shows revocation/reinstatement pattern
-  - Authority is pending (not yet granted)
-- **PASS** if:
-  - Required authority type is authorized
-  - Authority age is 18+ months
-  - No prior revocation
-  - Stable history with no revocations
-
-## Examples
-
-### Check authority for a DOT number
-
-**User prompt**: "Check authority for DOT 12345"
-
-Fetch authority records and history. Report all authority types, their statuses, authority age, and any risk flags. Produce the full authority report with a verdict.
-
-### Verify property hauling authorization
-
-**User prompt**: "Is this carrier authorized to haul property?"
-
-Focus on common authority status and the property sub_type. Check that `common_authority_status` is "authorized" and `sub_types.property` is true. Respond with a clear yes/no, the docket number, and any caveats (new authority, prior revocation, etc.).
-
-### Authority history investigation
-
-**User prompt**: "Show authority history for this carrier"
-
-Fetch the full authority history via `/authority/{docketNumber}/history`. Present a chronological timeline of all status changes. Highlight revocations, reinstatements, and any patterns. Calculate time between events. Note if the authority has been stable or volatile.
-
-### MC vs DOT number explanation
-
-**User prompt**: "What's the difference between this carrier's MC and DOT numbers?"
-
-Explain that the DOT number is the FMCSA registration number (required for all commercial vehicles in interstate commerce) while the MC number is the operating authority docket number (required for for-hire carriers and brokers). A carrier can have a DOT number without an MC number if they operate as a private carrier. Show both numbers from the carrier record and what authority the MC number grants.
+**Next action:** Stop the transaction when required authority is absent; otherwise continue to insurance and policy qualification.
 
 ## Output
 
-Return the requested result with the API route version, relevant carrier identifiers, evidence, missing-data limits, and the next operational action. Never include an API token or an unredacted bulk API response.
+Return this compact decision record:
+
+```yaml
+subject: "DOT or input identifier"
+purpose: "the exact operational question"
+status: "bounded status from this skill"
+evidence:
+  - fact: "observed value"
+    source: "API route or MCP tool"
+    as_of: "timestamp or source date"
+missing_evidence: []
+policy_or_method: "named policy, evidence-only, or disclosed model"
+next_action: "owner and concrete action"
+limitations: "coverage, freshness, and inference limits"
+```
+
+Every material claim needs a source and as-of value. Totals must reconcile to
+detail rows. The output must say whether any result is partial.
+
+## Examples
+
+**Should trigger:** “Can DOT 1234567 legally haul this for-hire property load?”
+
+Produce the bounded record, show the decisive evidence and unknowns, and give one
+operational next action.
+
+**Should not trigger:** “Analyze its roadside violations.”
+
+Route that request to the narrower SearchCarriers skill whose job matches it.
 
 ## Error Handling
 
-| Error | Cause | Resolution |
-|---|---|---|
-| `401 Unauthorized` | Invalid or expired API key | Verify `SEARCHCARRIERS_API_KEY` is set correctly |
-| `404 Not Found` | DOT number does not exist | Verify the DOT number; search by name or MC number instead |
-| `429 Too Many Requests` | Rate limit exceeded | Wait and retry; the Free tier has lower rate limits |
-| Empty authorities response | Carrier has no operating authority on file | Report as a finding — carrier may be a private carrier or may have never applied for authority |
-| `status_since_date` is null | FMCSA data gap | Use `add_date` from carrier record as a fallback for authority age calculation |
-| History pagination | More history pages exist | Always check for pagination indicators and fetch all pages |
-
-When encountering errors, report them clearly. Authority status is binary — a carrier is either authorized or not. Ambiguity should always result in a REVIEW verdict, never a PASS.
+| Condition | Required response |
+|---|---|
+| Identity conflict or multiple matches | Stop and return `REVIEW`; request a USDOT or docket. |
+| Missing field or empty data | No authority record never becomes a pass. Mixed or unclear statuses require review. |
+| `401` | Stop; report invalid/missing credentials without exposing them. |
+| `403` | Stop; identify the route and required plan/access. |
+| `404` | Recheck the identifier and route; do not treat it as adverse carrier evidence. |
+| `422` | Remove unsupported parameters and compare with the API contract. |
+| `429` | Honor `Retry-After`; use bounded retry and preserve progress. |
+| `5xx` or timeout | Retry with bounded backoff, then return partial/unavailable. |
 
 ## Resources
 
-- FMCSA Operating Authority Overview: 49 CFR Parts 365, 368
-- FMCSA New Entrant Safety Assurance Program: 49 CFR Part 385 Subpart D
-- FMCSA Household Goods Regulations: 49 CFR Part 375
-- Docket number registration: FMCSA OP-1 Form
-- SearchCarriers API documentation: https://searchcarriers.com/docs/api and the repository `API-DISCOVERY.md`
-- Authority status codes reference: `{baseDir}/docs/authority-codes.md`
-- FMCSA SAFER System: https://safer.fmcsa.dot.gov
-- FMCSA LICENSING & INSURANCE (L&I) System: https://li-public.fmcsa.dot.gov
+- [Decision playbook](references/playbook.md)
+- [Repository API contract](https://github.com/jeremylongshore/searchcarriers-tools/blob/main/API-DISCOVERY.md)
+- [SearchCarriers public API](https://searchcarriers.com/docs/api)
+- [SearchCarriers terms](https://searchcarriers.com/terms-of-service)

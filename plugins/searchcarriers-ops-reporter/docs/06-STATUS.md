@@ -1,6 +1,6 @@
 # Ops Reporter — Status
 
-## Current state: 0.2.0 ready
+## Current state: 0.3.0 ready
 
 Ops Reporter is implemented and validated. It retrieves current source data,
 normalizes it, and produces Markdown, text, PDF, CSV, and JSON outputs for the
@@ -23,5 +23,6 @@ supported report tools.
 
 | Version | Date | Changes |
 |---|---|---|
+| 0.3.0 | 2026-09-23 | Pain-point skill rebuild, decision playbook, and behavioral eval specification |
 | 0.2.0 | 2026-09-22 | v3 lookup migration, public-safe fixtures, Apache-2.0 release |
 | 0.1.0 | 2026-02-26 | Initial implementation |

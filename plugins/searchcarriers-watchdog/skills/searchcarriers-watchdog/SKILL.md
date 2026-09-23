@@ -1,145 +1,134 @@
 ---
 name: searchcarriers-watchdog
-description: Manage SearchCarriers company watches, format supplied notifications, and run point-in-time compliance checks. Use when operating carrier monitoring.
-allowed-tools: Read,Grep,Bash(python:*)
-metadata:
-  tier: proplus
-version: 0.2.0
+description: "Analyzes carrier evidence for carrier watch operations. Use when a user asks, \"Watch DOT 1234567 for details and inspections, then\u2026\". Trigger with \"Watch DOT 1234567 for details and\u2026\"."
+allowed-tools: Read, mcp__searchcarriers-watchdog__manage_watchlist, mcp__searchcarriers-watchdog__get_alerts, mcp__searchcarriers-watchdog__route_alert, mcp__searchcarriers-watchdog__monitor_compliance
+argument-hint: '[DOT, docket, VIN, carrier list, or workflow input]'
+version: 0.3.0
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: Apache-2.0
-compatibility: Claude Code or another MCP-capable client; Python 3.10+; network access to searchcarriers.com; an appropriate SearchCarriers API subscription.
+compatibility: Designed for Claude Code and MCP-capable clients; requires Python 3.10+, network access to searchcarriers.com, and an eligible SearchCarriers plan.
+metadata:
+  tier: proplus
 tags:
 - searchcarriers
 - motor-carrier
-- plugin
+- evidence
+- proplus
 ---
 
-# SearchCarriers Watchdog
+# Carrier Watch Operations
+
+Carrier Watch Operations helps an operator manage company watch types and turn supplied change events into review work. It solves this operational failure: Teams assume a configured watch guarantees alerts even though the public API exposes watch state but no alert-feed endpoint.
 
 ## Overview
 
-> **API contract:** Use the repository `API-DISCOVERY.md` for the current
-> v3/v2/v1 route map. Do not invent alert or webhook routes.
+The workflow is **identify → fetch → reconcile → decide → act**. API data is
+licensed research evidence, not an endorsement, official safety rating, or guarantee.
+Keep the human or named company policy as the decision owner.
 
-The Watchdog MCP server manages the SearchCarriers watch configuration and can
-evaluate a carrier's current compliance posture. It also formats an alert object
-supplied by another system for Slack, Telegram, email, or a generic webhook.
-
-The published SearchCarriers API currently documents watch configuration, not
-an alert-feed endpoint. `get_alerts` is retained for client compatibility and
-returns `endpoint_unavailable` with the documented alternatives. It does not
-claim that an empty response means a carrier is stable.
+The bounded result is: Return WATCH CONFIGURED, WATCH REMOVED, REVIEW EVENT, or DELIVERY FAILED. Never report no alerts from an unavailable feed.
 
 ## Prerequisites
 
-- Pro Plus or higher subscription tier
-- `SEARCHCARRIERS_API_KEY` in the MCP server environment
-- `searchcarriers-watchdog` MCP server configured and running
-- A separate scheduler or notification source when continuous monitoring is
-  required
+- Set `SEARCHCARRIERS_API_KEY` to a SearchCarriers bearer token with the required tier.
+- Confirm the subject identifier, intended movement or decision, and named policy when applicable.
+- Read [`API-DISCOVERY.md`](https://github.com/jeremylongshore/searchcarriers-tools/blob/main/API-DISCOVERY.md) with the `Read` tool before changing routes or parameters.
+- Use the registered MCP tools listed in `allowed-tools`; their server process owns bearer authentication and route selection.
+
+Authentication is `Authorization: Bearer $SEARCHCARRIERS_API_KEY`; never print,
+commit, or place the token in a URL. Do not commit live API responses.
 
 ## Instructions
 
-### Manage watches
+### Step 1: Define the decision
 
-Use `manage_watchlist` with one of these actions:
+Write one sentence naming the subject, the operational use, the evidence window,
+and who owns the final decision. If a policy threshold is required, obtain the
+named policy instead of inventing an “industry standard.”
 
-| Action | Required input | API behavior |
-|---|---|---|
-| `list` | None | `GET /api/v1/company/watch` |
-| `add` | `dot_number`; optional `watch_types` | `POST /api/v1/company/{dot}/watch` |
-| `remove` | `dot_number` | POST the same route with an empty `watch_types` array |
+### Step 2: Resolve identity
 
-`watch_types` defaults to `["all"]`. The upstream API also documents examples
-such as `details` and `inspections`. Preserve the upstream response instead of
-inventing baseline dates, alert counts, monitoring states, or retention rules.
+Prefer USDOT or docket identifiers. Treat name-only matches as ambiguous until
+legal name, location, and identifiers agree. Stop on conflicting identity.
 
-### Handle the compatibility alert tool
+### Step 3: Fetch the smallest evidence set
 
-If a caller invokes `get_alerts`, explain that the public API does not expose an
-alert feed. The structured response lists the documented watch routes. Do not
-retry the former `/api/v1/carrier-watch/alerts` route and do not interpret the
-compatibility response as evidence that no changes occurred.
+**Routes/tools:** MCP tools: manage_watchlist, get_alerts, route_alert, monitor_compliance; GET/POST /api/v1/company/{dot}/watch
 
-For automated monitoring, use one of these explicit designs:
+Read current watch state, synchronize requested watch_types, verify the read-back, and accept change events only from a documented external source.
 
-1. Consume a notification delivered by the user's configured SearchCarriers
-   channel, then pass its alert object to `route_alert` for formatting.
-2. Run a scheduled, application-owned comparison of authorized company data,
-   persist a minimal baseline outside this plugin, and emit an alert only when
-   that comparator detects a change.
-
-### Format a supplied alert
-
-`route_alert` accepts an `alert` object, `channel`, and `destination`. It returns
-a channel-ready payload. It does not transmit the payload. The caller owns
-delivery, retries, credentials, and audit logging.
-
-Supported formatting channels are `slack`, `telegram`, `email`, and `webhook`.
-Before transmitting, validate the destination against an application allowlist
-and keep webhook URLs and mail credentials out of logs.
-
-### Run a point-in-time compliance check
-
-Use `monitor_compliance` with a DOT number to evaluate current authority,
-insurance, safety rating, and MCS-150 currency. Treat the result as a screening
-aid. If upstream sections are unavailable, report the missing evidence rather
-than describing the carrier as compliant.
-
-## Examples
-
-### Add a company watch
+Call the narrowest MCP tool listed in **Routes/tools** and pass only the documented input fields. Example MCP input:
 
 ```json
-{
-  "action": "add",
-  "dot_number": "1234567",
-  "watch_types": ["details", "inspections"]
-}
+{"dot_number": "1234567"}
 ```
 
-### Stop watching a company
+The MCP server selects v3, v2, or v1 from the shared contract and returns the API version in its evidence. Never bypass a structured tool error by inventing a route.
 
-```json
-{"action":"remove","dot_number":"1234567"}
-```
+### Step 4: Reconcile evidence
 
-### Format an application-owned alert
+Capture: DOT, requested/current watch types, API result, event provenance, current compliance snapshot, delivery attempt, and as-of.
 
-```json
-{
-  "alert": {
-    "dot_number": "1234567",
-    "carrier_name": "EXAMPLE FREIGHT LLC",
-    "alertType": "insurance_change",
-    "severity": "warning",
-    "summary": "Review the current insurance record."
-  },
-  "channel": "slack",
-  "destination": "#carrier-review"
-}
-```
+Keep facts, policy tests, modeled indicators, and analyst judgment in separate
+fields. Preserve zeros; represent absent fields as `unknown` with a reason.
 
-The returned Slack payload is formatting output. Sending it requires a separate
-authorized Slack client or webhook integration.
+### Step 5: Decide and prescribe the next action
 
-## Error handling
+Return WATCH CONFIGURED, WATCH REMOVED, REVIEW EVENT, or DELIVERY FAILED. Never report no alerts from an unavailable feed.
 
-| Error | Meaning | Action |
-|---|---|---|
-| `endpoint_unavailable` | No published SearchCarriers alert-feed route | Use a configured notification source or an application-owned comparator |
-| `401` | Token rejected | Rotate or correct the API token |
-| `403` | Subscription does not cover the operation | Verify the account tier |
-| `404` | Company or watch not found | Confirm the DOT number and current watch state |
-| `429` | Rate limited | Honor `Retry-After` and use bounded backoff |
+**Next action:** Fix the external event source or delivery channel and retain a retry receipt.
 
-## Resources
 
-- Current repository contract: `API-DISCOVERY.md`
-- Public API documentation: https://searchcarriers.com/docs/api
-- MCP server source: `{baseDir}/scripts/watchdog_mcp.py`
-- SearchCarriers terms: https://searchcarriers.com/terms-of-service
+Registered tool identifiers: `mcp__searchcarriers-watchdog__manage_watchlist`, `mcp__searchcarriers-watchdog__get_alerts`, `mcp__searchcarriers-watchdog__route_alert`, `mcp__searchcarriers-watchdog__monitor_compliance`.
 
 ## Output
 
-Return the requested result with the API route version, relevant carrier identifiers, evidence, missing-data limits, and the next operational action. Never include an API token or an unredacted bulk API response.
+Return this compact decision record:
+
+```yaml
+subject: "DOT or input identifier"
+purpose: "the exact operational question"
+status: "bounded status from this skill"
+evidence:
+  - fact: "observed value"
+    source: "API route or MCP tool"
+    as_of: "timestamp or source date"
+missing_evidence: []
+policy_or_method: "named policy, evidence-only, or disclosed model"
+next_action: "owner and concrete action"
+limitations: "coverage, freshness, and inference limits"
+```
+
+Every material claim needs a source and as-of value. Totals must reconcile to
+detail rows. The output must say whether any result is partial.
+
+## Examples
+
+**Should trigger:** “Watch DOT 1234567 for details and inspections, then verify read-back.”
+
+Produce the bounded record, show the decisive evidence and unknowns, and give one
+operational next action.
+
+**Should not trigger:** “Create a PDF comparison.”
+
+Route that request to the narrower SearchCarriers skill whose job matches it.
+
+## Error Handling
+
+| Condition | Required response |
+|---|---|
+| Identity conflict or multiple matches | Stop and return `REVIEW`; request a USDOT or docket. |
+| Missing field or empty data | get_alerts endpoint_unavailable means unavailable, not zero events. Delivery failure does not undo watch state. |
+| `401` | Stop; report invalid/missing credentials without exposing them. |
+| `403` | Stop; identify the route and required plan/access. |
+| `404` | Recheck the identifier and route; do not treat it as adverse carrier evidence. |
+| `422` | Remove unsupported parameters and compare with the API contract. |
+| `429` | Honor `Retry-After`; use bounded retry and preserve progress. |
+| `5xx` or timeout | Retry with bounded backoff, then return partial/unavailable. |
+
+## Resources
+
+- [Decision playbook](references/playbook.md)
+- [Repository API contract](https://github.com/jeremylongshore/searchcarriers-tools/blob/main/API-DISCOVERY.md)
+- [SearchCarriers public API](https://searchcarriers.com/docs/api)
+- [SearchCarriers terms](https://searchcarriers.com/terms-of-service)

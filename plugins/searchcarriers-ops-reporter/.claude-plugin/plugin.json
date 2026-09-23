@@ -1,7 +1,7 @@
 {
   "name": "searchcarriers-ops-reporter",
   "description": "Vetting reports, fleet analysis, carrier comparisons, and data export for motor carrier operations.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "mcp",
   "pipeline_stage": "output",
   "min_tier": "pro",

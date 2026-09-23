@@ -6,7 +6,9 @@
 Carrier Intel (INPUT) → Risk Engine (ANALYSIS) → Ops Reporter (OUTPUT)
 ```
 
-Consumes carrier data from Carrier Intel (or directly from the API) and produces risk assessments, vetting verdicts, insurance validations, and compliance audits.
+Consumes carrier data from Carrier Intel or the API and produces advisory risk
+evidence, named qualification reports, caller-policy verdicts, insurance
+reconciliation, and compliance snapshots.
 
 ## Quick Start
 
@@ -25,8 +27,9 @@ python3 plugins/searchcarriers-risk-engine/scripts/risk_engine_mcp.py
 
 | Tool | Description | Min Tier |
 |------|-------------|----------|
-| `risk_score` | Composite 0-100 risk score from safety, insurance, authority, and operational data | Pro |
-| `vetting_check` | Carrier qualification against configurable rules (PASS/REVIEW/FAIL) | Pro+ |
+| `risk_score` | Disclosed legacy advisory model; never an official safety rating | Pro |
+| `qualification_reports` | Upstream named personal/team qualifications with Pass/Review/Fail evidence | Pro+ |
+| `vetting_check` | Carrier qualification against a complete caller-supplied policy; no hidden thresholds | Pro+ |
 | `insurance_check` | Insurance coverage analysis with gap detection and lapse warnings | Pro |
 | `compliance_audit` | MCS-150 filing, authority status, and regulatory compliance audit | Pro |
 
@@ -37,7 +40,10 @@ python3 plugins/searchcarriers-risk-engine/scripts/risk_engine_mcp.py
 | `/sc-risk <DOT>` | Calculate risk score for a carrier |
 | `/sc-vet <DOT>` | Run vetting check with qualification rules |
 
-## Risk Score Ranges
+## Legacy advisory score ranges
+
+These bands belong to this client's legacy model. They are not FMCSA ratings,
+SearchCarriers qualifications, or a substitute for a named company policy.
 
 | Score | Level | Meaning |
 |-------|-------|---------|
@@ -55,7 +61,7 @@ All tools include a `_pipeline` envelope for downstream consumption by Ops Repor
   "_pipeline": {
     "source": "risk-engine",
     "tool": "risk_score",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "dot_number": "12345",
     "timestamp": "2026-02-26T10:00:00Z"
   },

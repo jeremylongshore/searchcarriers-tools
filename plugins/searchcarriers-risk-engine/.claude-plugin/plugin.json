@@ -1,19 +1,24 @@
 {
   "name": "searchcarriers-risk-engine",
-  "description": "Risk scoring, vetting checks, insurance validation, and compliance auditing for motor carriers.",
-  "version": "0.2.0",
+  "description": "Advisory risk evidence, named qualifications, caller-policy checks, insurance reconciliation, and compliance snapshots for motor carriers.",
+  "version": "0.3.0",
   "type": "mcp",
   "pipeline_stage": "analysis",
   "min_tier": "pro",
   "tools": [
     {
       "name": "risk_score",
-      "description": "Calculate a composite risk score for a carrier based on safety, insurance, and authority data.",
+      "description": "Calculate a disclosed legacy advisory score from safety, insurance, and authority evidence.",
       "min_tier": "pro"
     },
     {
+      "name": "qualification_reports",
+      "description": "Fetch API v2 personal and team named qualification results with Pass, Review, or Fail evidence.",
+      "min_tier": "proplus"
+    },
+    {
       "name": "vetting_check",
-      "description": "Run carrier through qualification rules and return pass/review/fail verdict.",
+      "description": "Apply a complete caller-supplied policy and return a Pass, Review, or Fail verdict.",
       "min_tier": "proplus"
     },
     {

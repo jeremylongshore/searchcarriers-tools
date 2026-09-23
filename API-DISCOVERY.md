@@ -6,7 +6,7 @@ an older search route into v3. SearchCarriers may return HTTP 200 while ignoring
 an unknown filter, so route tests must assert the request parameters and the
 response structure.
 
-Contract reviewed: 2026-09-22 against the public OpenAPI document, the
+Contract reviewed: 2026-09-23 against the public OpenAPI document, the
 SearchCarriers 1.31.0 release notes, and authenticated structural probes. Live
 probe output recorded only status codes and object shapes; API response data is
 not committed to this repository.
@@ -59,6 +59,27 @@ returns a structured unavailable response rather than calling an invented route.
 | City | `addressCity` |
 | Page size | `perPage` |
 | Page | `page` |
+
+The public OpenAPI document also exposes these advanced v3 filters. The MCP
+`carrier_lookup` tool accepts the corresponding snake-case names and the shared
+contract translates them to the exact wire names below.
+
+| Job | Public API parameters |
+|---|---|
+| Company class | `companyTypes[]` |
+| Radius from ZIP | `radiusZipcode`, `radiusMiles` |
+| Fleet capacity | `minPowerUnits`, `maxPowerUnits`, `minTrailers`, `maxTrailers` |
+| Safety-data presence | `safetyScorePresent` |
+| Filed insurance | `minBipdCoverage`, `maxBipdCoverage`, `cargoInsurancePresent` |
+| Registration window | `dotRegisteredSince`, `dotRegisteredBefore` |
+| Authority timing | `latestAuthorityGrantedSince`, `latestAuthorityGrantedBefore`, `minAuthorityAge`, `maxAuthorityAge` |
+| Authority and operation class | `includeAuthorities[]`, `excludeAuthorities[]`, `includeOperationTypes[]`, `excludeOperationTypes[]` |
+| Equipment and cargo | `includeEquipmentTypes[]`, `includeCargoCarried[]` |
+| Lane origin | `laneOriginState`, `laneOriginCountyGeoid`, `laneOriginLatitude`, `laneOriginLongitude`, `laneOriginRadiusMiles` |
+| Lane destination | `laneDestinationState`, `laneDestinationCountyGeoid`, `laneDestinationLatitude`, `laneDestinationLongitude`, `laneDestinationRadiusMiles` |
+
+These filters narrow discovery candidates; they do not prove that a carrier is
+available, willing to accept a load, or qualified under the caller's policy.
 
 Use `docketNumber`, not `mcNumber`; `perPage`, not `per_page`; and
 `addressState`/`addressCity`, not `state`/`city`. Use the dedicated v1 VIN path;

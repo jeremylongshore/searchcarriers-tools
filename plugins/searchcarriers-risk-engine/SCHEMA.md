@@ -35,7 +35,7 @@ searchcarriers-risk-engine/
 |-------|-------|--------|
 | name | searchcarriers-risk-engine | ✅ |
 | description | Risk scoring, vetting checks, insurance validation, and compliance auditing | ✅ |
-| version | 0.1.0 | ✅ |
+| version | 0.3.0 | ✅ |
 | type | mcp | ✅ |
 | pipeline_stage | analysis | ✅ |
 | min_tier | pro | ✅ |
@@ -44,8 +44,9 @@ searchcarriers-risk-engine/
 
 | Tool | Purpose | Min Tier | Status |
 |------|---------|----------|--------|
-| risk_score | Composite 0-100 risk score | pro | ✅ |
-| vetting_check | Qualification rules (PASS/REVIEW/FAIL) | proplus | ✅ |
+| risk_score | Disclosed legacy advisory score | pro | ✅ |
+| qualification_reports | Upstream named qualification evidence | proplus | ✅ |
+| vetting_check | Complete caller-policy rules (PASS/REVIEW/FAIL) | proplus | ✅ |
 | insurance_check | Coverage analysis with gap detection | pro | ✅ |
 | compliance_audit | Regulatory compliance audit | pro | ✅ |
 
@@ -74,8 +75,8 @@ searchcarriers-risk-engine/
 |-----|--------|
 | Response time | < 3s per tool call |
 | Availability | Follows SearchCarriers API SLA |
-| Scoring accuracy | < 5% false positive rate on high-risk flags |
-| Data freshness | Current via API, no caching (FMCSA data synced nightly) |
+| Decision traceability | Every policy result retains observed value and threshold |
+| Data freshness | Current API response with an explicit as-of timestamp |
 
 ## Inventory Reference
 
@@ -84,5 +85,5 @@ searchcarriers-risk-engine/
 | WHO | Jeremy Longshore |
 | WHAT | Risk scoring and vetting logic |
 | WHEN | Phase 5 |
-| TARGET | Working MCP with 4 tools |
+| TARGET | Working MCP with 5 tools |
 | PRODUCTION | No |

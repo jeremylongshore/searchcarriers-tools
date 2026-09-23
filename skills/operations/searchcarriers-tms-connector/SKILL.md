@@ -1,485 +1,132 @@
 ---
 name: searchcarriers-tms-connector
-description: Formats carrier data for TMS imports mapping fields to TMW, McLeod, and MercuryGate formats. Use when preparing carrier data for TMS onboarding.
-allowed-tools: Read,Grep,Bash(curl:*),Bash(python:*)
-metadata:
-  tier: enterprise
-version: 0.2.0
+description: "Analyzes verified SearchCarriers evidence for tms reconciliation planner. Use when a user asks, \"Plan a dry-run sync from SearchCarriers into our\u2026\". Trigger with \"Plan a dry-run sync from\u2026\"."
+allowed-tools: Read, Bash(curl:*), Bash(python:*)
+argument-hint: '[DOT, docket, VIN, carrier list, or workflow input]'
+version: 0.3.0
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: Apache-2.0
-compatibility: Claude Code or another MCP-capable client; Python 3.10+; network access to searchcarriers.com; an appropriate SearchCarriers API subscription.
+compatibility: Designed for Claude Code and MCP-capable clients; requires Python 3.10+, network access to searchcarriers.com, and an eligible SearchCarriers plan.
+metadata:
+  tier: enterprise
 tags:
 - searchcarriers
 - motor-carrier
-- operations
+- evidence
+- enterprise
 ---
 
-# TMS Connector
+# TMS Reconciliation Planner
+
+TMS Reconciliation Planner helps an operator produce a dry-run carrier change set with idempotent keys and rollback evidence. It solves this operational failure: Blind TMS overwrites destroy local fields, duplicate carriers, and turn stale API data into operational status.
 
 ## Overview
 
-> **API contract:** Use the repository `API-DISCOVERY.md` for the current v3/v2/v1 route map and verified parameter names. Do not infer newer-version routes.
+The workflow is **identify → fetch → reconcile → decide → act**. API data is
+licensed research evidence, not an endorsement, official safety rating, or guarantee.
+Keep the human or named company policy as the decision owner.
 
-Transportation Management Systems are the operational backbone of freight brokerages, 3PLs, and shippers. Every TMS maintains a carrier master file, and keeping that file current is a constant manual burden -- new carrier onboarding, quarterly re-verification, insurance updates, and authority status changes. This skill bridges SearchCarriers API data and TMS carrier record formats. It fetches carrier data, maps fields to the conventions of major TMS platforms, generates import-ready files, and provides guidance on the onboarding workflow. This is a helper skill -- it prepares data for import. Actual TMS API integration requires TMS-specific credentials which are outside scope.
+The bounded result is: Return NO CHANGE, PROPOSED, APPLIED, PARTIAL, or ROLLED BACK per record.
 
 ## Prerequisites
 
-- **Minimum tier**: Enterprise
-- **Environment variable**: `SEARCHCARRIERS_API_KEY` must be set in the shell environment
-- **Network access**: HTTPS to `searchcarriers.com`
-- **Context**: User should identify their TMS platform so the correct field mapping is used
+- Set `SEARCHCARRIERS_API_KEY` to a SearchCarriers bearer token with the required tier.
+- Confirm the subject identifier, intended movement or decision, and named policy when applicable.
+- Read [`API-DISCOVERY.md`](https://github.com/jeremylongshore/searchcarriers-tools/blob/main/API-DISCOVERY.md) with the `Read` tool before changing routes or parameters.
+- Use `Bash(curl:*)` for API requests and `Bash(python:*)` only for local JSON validation or deterministic reshaping.
+
+Authentication is `Authorization: Bearer $SEARCHCARRIERS_API_KEY`; never print,
+commit, or place the token in a URL. Do not commit live API responses.
 
 ## Instructions
 
-### 1. Identify the Target TMS Platform
+### Step 1: Define the decision
 
-Ask or detect which TMS platform the user needs data formatted for:
+Write one sentence naming the subject, the operational use, the evidence window,
+and who owns the final decision. If a policy threshold is required, obtain the
+named policy instead of inventing an “industry standard.”
 
-| TMS Platform | Common Identifiers | Import Format |
-|---|---|---|
-| TMW Suite (Trimble) | "TMW", "TruckMate", "Trimble TMS" | CSV with fixed column order |
-| McLeod Software | "McLeod", "LoadMaster", "PowerBroker" | CSV or XML |
-| MercuryGate | "MercuryGate", "Mercury", "MGTI" | CSV or EDI-style flat file |
-| Revenova | "Revenova", "Salesforce TMS" | CSV (Salesforce import format) |
-| Aljex | "Aljex" | CSV with specific column headers |
-| Rose Rocket | "Rose Rocket", "RoseRocket" | CSV or JSON via API |
-| Tai TMS | "Tai", "Tai Software" | CSV with fixed layout |
-| Turvo | "Turvo" | JSON or CSV |
-| Generic / Unknown | "our TMS", "TMS import", unspecified | Standard CSV with common fields |
+### Step 2: Resolve identity
 
-If the user does not specify a platform, use the Generic format and note which fields may need manual mapping.
+Prefer USDOT or docket identifiers. Treat name-only matches as ambiguous until
+legal name, location, and identifiers agree. Stop on conflicting identity.
 
-### 2. Fetch Carrier Data
+### Step 3: Fetch the smallest evidence set
 
-Retrieve the full carrier record:
+**Routes/tools:** GET /api/v3/company/{dot}; GET /api/v2/company/{dot}/qualification-reports; local TMS adapter
+
+Map by immutable DOT, fetch selected source fields, compare to the TMS snapshot, classify creates/updates/conflicts, require approval for destructive status changes, then apply with idempotency keys.
+
+For a direct API request, use the documented route and selected fields:
 
 ```bash
-curl -s "https://searchcarriers.com/api/v3/search?dotNumber=12345" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
+curl --fail-with-body --get   "https://searchcarriers.com/api/v3/company/$DOT_NUMBER"   --header "Authorization: Bearer $SEARCHCARRIERS_API_KEY"   --header "Accept: application/json"   --data-urlencode "fields=contact,authorities,insurance,safety,operation,risk_factors"
 ```
 
-For onboarding workflows that include vetting, also fetch:
+Use the specialty v1 or qualification v2 route listed above when the job requires
+it; never rewrite every route to the highest version.
 
-```bash
-# Insurance status
-curl -s "https://searchcarriers.com/api/v1/company/12345/insurances" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
+### Step 4: Reconcile evidence
 
-# Authority status
-curl -s "https://searchcarriers.com/api/v1/company/12345/authorities" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
+Capture: Run ID, DOT key, source/as-of, before/after diff, protected fields, conflict reason, action, result, and rollback reference.
 
-### 3. Field Mapping by TMS Platform
+Keep facts, policy tests, modeled indicators, and analyst judgment in separate
+fields. Preserve zeros; represent absent fields as `unknown` with a reason.
 
-#### TMW Suite (Trimble)
+### Step 5: Decide and prescribe the next action
 
-TMW carrier records use these primary fields:
+Return NO CHANGE, PROPOSED, APPLIED, PARTIAL, or ROLLED BACK per record.
 
-| TMW Field | SearchCarriers Field | Notes |
-|---|---|---|
-| `CarrierID` | `dot_number` | TMW uses DOT as primary key |
-| `CarrierName` | `legal_name` | Max 60 chars in TMW |
-| `DBAName` | `dba_name` | Optional |
-| `MCNumber` | `mc_mx_ff_number` | Strip "MC-" prefix |
-| `DOTNumber` | `dot_number` | |
-| `Address1` | `phy_street` | Physical address |
-| `Address2` | _(empty)_ | TMW supports line 2 |
-| `City` | `phy_city` | |
-| `State` | `phy_state` | 2-letter code |
-| `Zip` | `phy_zip` | 5 or 9 digit |
-| `Phone` | `phone` | Format: (XXX) XXX-XXXX |
-| `Fax` | `fax` | |
-| `Email` | `email_address` | |
-| `SafetyRating` | `safety_rating` | S/C/U/N |
-| `InsuranceOnFile` | `bipd_insurance_on_file` | Currency amount |
-| `InsuranceRequired` | `bipd_insurance_required` | Currency amount |
-| `AuthStatus` | `operating_status` | ACTIVE/INACTIVE |
-| `FleetSize` | `total_power_units` | Integer |
-| `HazmatCertified` | `hm_flag` | Y/N |
-
-```bash
-python3 -c "
-import json, csv, sys, time, os
-
-carrier = json.loads(sys.argv[1])
-
-tmw_row = {
-    'CarrierID': carrier.get('dot_number', ''),
-    'CarrierName': str(carrier.get('legal_name', ''))[:60],
-    'DBAName': carrier.get('dba_name', ''),
-    'MCNumber': str(carrier.get('mc_mx_ff_number', '')).replace('MC-', '').replace('MC', ''),
-    'DOTNumber': carrier.get('dot_number', ''),
-    'Address1': carrier.get('phy_street', ''),
-    'Address2': '',
-    'City': carrier.get('phy_city', ''),
-    'State': carrier.get('phy_state', ''),
-    'Zip': carrier.get('phy_zip', ''),
-    'Phone': carrier.get('phone', ''),
-    'Fax': carrier.get('fax', ''),
-    'Email': carrier.get('email_address', ''),
-    'SafetyRating': str(carrier.get('safety_rating', 'N'))[:1].upper() if carrier.get('safety_rating') else 'N',
-    'InsuranceOnFile': carrier.get('bipd_insurance_on_file', ''),
-    'InsuranceRequired': carrier.get('bipd_insurance_required', ''),
-    'AuthStatus': carrier.get('operating_status', ''),
-    'FleetSize': carrier.get('total_power_units', ''),
-    'HazmatCertified': 'Y' if carrier.get('hm_flag') in [True, 'Y', 'YES', 'true'] else 'N',
-}
-
-outdir = os.environ.get('SC_OUTPUT_DIR', '.')
-timestamp = int(time.time())
-outpath = os.path.join(outdir, f'sc-tmw-import-{timestamp}.csv')
-fields = list(tmw_row.keys())
-with open(outpath, 'w', newline='') as f:
-    writer = csv.DictWriter(f, fieldnames=fields)
-    writer.writeheader()
-    writer.writerow(tmw_row)
-print(f'TMW import file: {outpath}')
-"
-```
-
-#### McLeod Software (LoadMaster / PowerBroker)
-
-| McLeod Field | SearchCarriers Field | Notes |
-|---|---|---|
-| `carrier_id` | `dot_number` | Primary identifier |
-| `name` | `legal_name` | |
-| `dba` | `dba_name` | |
-| `mc_num` | `mc_mx_ff_number` | Numeric only |
-| `dot_num` | `dot_number` | |
-| `addr_line1` | `phy_street` | |
-| `addr_city` | `phy_city` | |
-| `addr_state` | `phy_state` | |
-| `addr_zip` | `phy_zip` | |
-| `phone_num` | `phone` | Digits only, 10 chars |
-| `fax_num` | `fax` | Digits only |
-| `email` | `email_address` | |
-| `contact_name` | _(from officers)_ | First officer listed |
-| `safety_rating` | `safety_rating` | Full text |
-| `ins_bipd_amt` | `bipd_insurance_on_file` | |
-| `ins_cargo_amt` | `cargo_insurance_on_file` | |
-| `authority_status` | `operating_status` | |
-| `num_trucks` | `total_power_units` | |
-| `num_drivers` | `total_drivers` | |
-| `carrier_type` | `carrier_operation` | McLeod codes: A/B/C |
-
-```bash
-python3 -c "
-import json, csv, sys, time, re, os
-
-carrier = json.loads(sys.argv[1])
-
-def digits_only(val):
-    return re.sub(r'\D', '', str(val or ''))
-
-mcleod_row = {
-    'carrier_id': carrier.get('dot_number', ''),
-    'name': carrier.get('legal_name', ''),
-    'dba': carrier.get('dba_name', ''),
-    'mc_num': digits_only(carrier.get('mc_mx_ff_number', '')),
-    'dot_num': carrier.get('dot_number', ''),
-    'addr_line1': carrier.get('phy_street', ''),
-    'addr_city': carrier.get('phy_city', ''),
-    'addr_state': carrier.get('phy_state', ''),
-    'addr_zip': carrier.get('phy_zip', ''),
-    'phone_num': digits_only(carrier.get('phone', ''))[:10],
-    'fax_num': digits_only(carrier.get('fax', ''))[:10],
-    'email': carrier.get('email_address', ''),
-    'contact_name': '',
-    'safety_rating': carrier.get('safety_rating', ''),
-    'ins_bipd_amt': carrier.get('bipd_insurance_on_file', ''),
-    'ins_cargo_amt': carrier.get('cargo_insurance_on_file', ''),
-    'authority_status': carrier.get('operating_status', ''),
-    'num_trucks': carrier.get('total_power_units', ''),
-    'num_drivers': carrier.get('total_drivers', ''),
-    'carrier_type': carrier.get('carrier_operation', ''),
-}
-
-outdir = os.environ.get('SC_OUTPUT_DIR', '.')
-timestamp = int(time.time())
-outpath = os.path.join(outdir, f'sc-mcleod-import-{timestamp}.csv')
-fields = list(mcleod_row.keys())
-with open(outpath, 'w', newline='') as f:
-    writer = csv.DictWriter(f, fieldnames=fields)
-    writer.writeheader()
-    writer.writerow(mcleod_row)
-print(f'McLeod import file: {outpath}')
-"
-```
-
-#### MercuryGate
-
-| MercuryGate Field | SearchCarriers Field | Notes |
-|---|---|---|
-| `SCAC` | _(lookup separately)_ | Not always available in SearchCarriers |
-| `CarrierName` | `legal_name` | |
-| `DOT` | `dot_number` | |
-| `MC` | `mc_mx_ff_number` | |
-| `Street` | `phy_street` | |
-| `City` | `phy_city` | |
-| `StateProvince` | `phy_state` | |
-| `PostalCode` | `phy_zip` | |
-| `Country` | `"US"` | Default for FMCSA carriers |
-| `ContactPhone` | `phone` | |
-| `ContactEmail` | `email_address` | |
-| `InsuranceAmount` | `bipd_insurance_on_file` | |
-| `SafetyScore` | `safety_rating` | |
-| `EquipmentCount` | `total_power_units` | |
-| `ActiveAuth` | `operating_status` | Boolean: ACTIVE = true |
-
-#### Revenova (Salesforce-based)
-
-| Salesforce Field | SearchCarriers Field | Notes |
-|---|---|---|
-| `Account Name` | `legal_name` | Salesforce Account record |
-| `DBA Name` | `dba_name` | Custom field |
-| `DOT Number` | `dot_number` | Custom field |
-| `MC Number` | `mc_mx_ff_number` | Custom field |
-| `Billing Street` | `phy_street` | |
-| `Billing City` | `phy_city` | |
-| `Billing State` | `phy_state` | |
-| `Billing Zip` | `phy_zip` | |
-| `Phone` | `phone` | |
-| `Email` | `email_address` | |
-| `Safety Rating` | `safety_rating` | Picklist value |
-| `Insurance Status` | `bipd_insurance_on_file` | Custom field |
-| `Fleet Size` | `total_power_units` | Custom field |
-| `Carrier Status` | `operating_status` | Picklist: Active/Inactive |
-
-#### Generic TMS Format
-
-When the platform is unknown, produce a CSV with the most universally needed fields:
-
-```bash
-python3 -c "
-import json, csv, sys, time, os
-
-carriers = json.loads(sys.argv[1])  # list of carrier objects
-
-fields = [
-    'dot_number', 'mc_number', 'legal_name', 'dba_name',
-    'operating_status', 'entity_type',
-    'street', 'city', 'state', 'zip',
-    'phone', 'fax', 'email',
-    'total_drivers', 'total_power_units',
-    'safety_rating', 'safety_rating_date',
-    'carrier_operation', 'hm_flag',
-    'bipd_insurance_on_file', 'bipd_insurance_required',
-    'cargo_insurance_on_file', 'bond_insurance_on_file'
-]
-
-outdir = os.environ.get('SC_OUTPUT_DIR', '.')
-timestamp = int(time.time())
-outpath = os.path.join(outdir, f'sc-tms-import-{timestamp}.csv')
-
-with open(outpath, 'w', newline='') as f:
-    writer = csv.DictWriter(f, fieldnames=fields)
-    writer.writeheader()
-    for c in carriers:
-        row = {
-            'dot_number': c.get('dot_number', ''),
-            'mc_number': c.get('mc_mx_ff_number', ''),
-            'legal_name': c.get('legal_name', ''),
-            'dba_name': c.get('dba_name', ''),
-            'operating_status': c.get('operating_status', ''),
-            'entity_type': c.get('entity_type', ''),
-            'street': c.get('phy_street', ''),
-            'city': c.get('phy_city', ''),
-            'state': c.get('phy_state', ''),
-            'zip': c.get('phy_zip', ''),
-            'phone': c.get('phone', ''),
-            'fax': c.get('fax', ''),
-            'email': c.get('email_address', ''),
-            'total_drivers': c.get('total_drivers', ''),
-            'total_power_units': c.get('total_power_units', ''),
-            'safety_rating': c.get('safety_rating', ''),
-            'safety_rating_date': c.get('safety_rating_date', ''),
-            'carrier_operation': c.get('carrier_operation', ''),
-            'hm_flag': 'Y' if c.get('hm_flag') in [True, 'Y', 'YES', 'true'] else 'N',
-            'bipd_insurance_on_file': c.get('bipd_insurance_on_file', ''),
-            'bipd_insurance_required': c.get('bipd_insurance_required', ''),
-            'cargo_insurance_on_file': c.get('cargo_insurance_on_file', ''),
-            'bond_insurance_on_file': c.get('bond_insurance_on_file', ''),
-        }
-        writer.writerow(row)
-
-print(f'Generic TMS import file: {outpath} ({len(carriers)} carriers)')
-"
-```
-
-### 4. Carrier Onboarding Workflow
-
-The standard carrier onboarding process for TMS integration follows this sequence:
-
-**Step 1: Carrier Lookup**
-
-```bash
-curl -s "https://searchcarriers.com/api/v3/search?dotNumber=12345" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
-
-**Step 2: Vetting Checks**
-
-Before formatting for TMS import, verify the carrier meets minimum onboarding criteria:
-
-- Operating status must be ACTIVE.
-- Authority (common, contract, or broker) must not be revoked.
-- BIPD insurance must be on file and meet minimum requirements ($750K for general freight, $1M for HHG, $5M for hazmat).
-- Safety rating must not be Unsatisfactory.
-- No active out-of-service orders.
-
-```bash
-# Check authority status
-curl -s "https://searchcarriers.com/api/v1/company/12345/authorities" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-
-# Check insurance detail
-curl -s "https://searchcarriers.com/api/v1/company/12345/insurances" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
-
-**Step 3: Format for TMS**
-
-After passing vetting, map the carrier data to the target TMS format (see section 3).
-
-**Step 4: Generate Import File**
-
-Write the formatted data to a file the user can import into their TMS.
-
-**Step 5: Report**
-
-Present a summary:
-```
-Carrier Onboarding Summary:
-  Carrier: Acme Trucking LLC (DOT 123456)
-  Status: APPROVED for onboarding
-  Vetting: All checks passed
-  TMS Format: McLeod (LoadMaster)
-  Import File: ./sc-mcleod-import-1706000000.csv
-
-  Note: Import this file via McLeod's Carrier Maintenance > Import function.
-```
-
-### 5. Batch Onboarding
-
-For multiple carriers, combine the onboarding workflow with batch processing:
-
-```bash
-# Fetch all carriers in one call
-curl -s "https://searchcarriers.com/api/v1/export?dot_numbers[]=12345&dot_numbers[]=67890&dot_numbers[]=11111&file_format=json" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
-
-Then for each carrier:
-1. Run vetting checks.
-2. Classify as APPROVED, CONDITIONAL (passed with warnings), or REJECTED (failed vetting).
-3. Format approved carriers for TMS import.
-4. Generate a single combined import file.
-5. Generate a separate rejection report with reasons.
-
-Present the batch summary:
-```
-Batch Onboarding Results:
-  Total carriers: 15
-  Approved: 12
-  Conditional: 2 (insurance expiring within 30 days)
-  Rejected: 1 (DOT 99999 - authority revoked)
-
-  Import file: ./sc-tmw-import-1706000000.csv (12 carriers)
-  Review file: ./sc-onboard-review-1706000000.csv (2 carriers needing attention)
-  Rejection report: ./sc-onboard-rejected-1706000000.csv (1 carrier)
-```
-
-### 6. Change Detection and Update Workflow
-
-Use the watch endpoint to monitor carriers already in your TMS:
-
-```bash
-# Check if a carrier is on your watchlist
-curl -s "https://searchcarriers.com/api/v1/company/12345/watch" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-
-# Add a carrier to your watchlist
-curl -s -X POST "https://searchcarriers.com/api/v1/company/12345/watch" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
-
-**Update workflow:**
-1. Fetch current data from SearchCarriers for watched carriers.
-2. Compare against the last known TMS record (user provides or describes the current TMS data).
-3. Flag fields that have changed: address updates, insurance changes, safety rating changes, authority status changes.
-4. Generate an update import file with only the changed records.
-5. Recommend adding newly onboarded carriers to the watchlist.
-
-### 7. Data Freshness Assessment
-
-When generating TMS import files, include a freshness assessment:
-
-- **MCS-150 date**: How recently did the carrier update their FMCSA filing?
-- **Insurance effective dates**: Are policies current or expiring soon?
-- **Safety rating date**: When was the last safety audit?
-- **Data retrieval date**: Timestamp the export so the user knows when this snapshot was taken.
-
-Flag carriers whose TMS records are likely stale:
-```
-Data Freshness Warnings:
-  DOT 12345: MCS-150 filed 28 months ago — contact info may be outdated
-  DOT 67890: Insurance policy expires in 14 days — verify before onboarding
-  DOT 11111: Safety rating from 2019 — consider requesting updated review
-```
-
-## Examples
-
-Read `{baseDir}/references/examples.md` for the detailed single-carrier, batch, and exception scenarios. The examples use synthetic identifiers.
+**Next action:** Review the dry run, apply approved changes, reconcile reads after writes, and preserve rollback receipts.
 
 ## Output
 
-Return the requested TMS-ready CSV or JSON payload, an explicit field-mapping
-summary, vetting disposition, freshness warnings, and any rows that require
-manual completion. Never persist raw SearchCarriers API responses.
+Return this compact decision record:
+
+```yaml
+subject: "DOT or input identifier"
+purpose: "the exact operational question"
+status: "bounded status from this skill"
+evidence:
+  - fact: "observed value"
+    source: "API route or MCP tool"
+    as_of: "timestamp or source date"
+missing_evidence: []
+policy_or_method: "named policy, evidence-only, or disclosed model"
+next_action: "owner and concrete action"
+limitations: "coverage, freshness, and inference limits"
+```
+
+Every material claim needs a source and as-of value. Totals must reconcile to
+detail rows. The output must say whether any result is partial.
+
+## Examples
+
+**Should trigger:** “Plan a dry-run sync from SearchCarriers into our TMS.”
+
+Produce the bounded record, show the decisive evidence and unknowns, and give one
+operational next action.
+
+**Should not trigger:** “Look up a VIN.”
+
+Route that request to the narrower SearchCarriers skill whose job matches it.
 
 ## Error Handling
 
-| HTTP Status | Meaning | Action |
-|---|---|---|
-| 401 | Invalid or missing API key | Stop; inform the user to check `SEARCHCARRIERS_API_KEY` |
-| 403 | Feature requires Enterprise tier | Inform the user that TMS connector features require an Enterprise subscription |
-| 404 | Carrier not found | Report the DOT as not found; cannot onboard a nonexistent carrier |
-| 422 | Invalid parameter | Check DOT number format |
-| 429 | Rate limit exceeded | Wait 5 seconds and retry; relevant for batch onboarding |
-| 500+ | Server error | Retry once; report failure |
-
-**TMS-specific error handling:**
-- If a required TMS field is missing from the SearchCarriers data (e.g., no email for a TMS that requires it), flag it in the import file as needing manual completion rather than leaving it blank silently.
-- If field value exceeds TMS character limits (e.g., TMW's 60-char carrier name limit), truncate and note the truncation.
-- If the carrier fails vetting but the user explicitly requests the import file anyway, generate it with a prominent warning header.
-
-**Onboarding rejection reasons to track:**
-- Authority revoked or not granted
-- Insurance below minimum or expired
-- Unsatisfactory safety rating
-- Active out-of-service order
-- Operating status not ACTIVE
+| Condition | Required response |
+|---|---|
+| Identity conflict or multiple matches | Stop and return `REVIEW`; request a USDOT or docket. |
+| Missing field or empty data | Ambiguous DOTs, missing required evidence, or a stale snapshot become conflicts; never auto-create from a name match. |
+| `401` | Stop; report invalid/missing credentials without exposing them. |
+| `403` | Stop; identify the route and required plan/access. |
+| `404` | Recheck the identifier and route; do not treat it as adverse carrier evidence. |
+| `422` | Remove unsupported parameters and compare with the API contract. |
+| `429` | Honor `Retry-After`; use bounded retry and preserve progress. |
+| `5xx` or timeout | Retry with bounded backoff, then return partial/unavailable. |
 
 ## Resources
 
-- SearchCarriers API documentation: `https://searchcarriers.com/docs`
-- TMW Suite documentation: `https://www.trimble.com/transportation` (carrier setup module)
-- McLeod Software: `https://www.mcleodsoftware.com` (LoadMaster carrier maintenance)
-- MercuryGate: `https://www.mercurygate.com` (carrier management module)
-- Revenova: `https://www.revenova.com` (Salesforce carrier records)
-- FMCSA minimum insurance requirements: $750K BIPD for general freight, $1M for household goods, $5M for hazmat
-- Carrier operation codes: A = Auth For Hire, B = Exempt For Hire, C = Private Property, D = Private Passengers
-- Carrier object field reference: `{baseDir}/docs/carrier-fields.md`
-- Related skill: `searchcarriers-carrier-lookup` for individual carrier lookups
-- Related skill: `searchcarriers-bulk-processor` for batch carrier data retrieval
-- Related skill: `searchcarriers-contact-verifier` for pre-onboarding contact validation
+- [Decision playbook](references/playbook.md)
+- [Repository API contract](https://github.com/jeremylongshore/searchcarriers-tools/blob/main/API-DISCOVERY.md)
+- [SearchCarriers public API](https://searchcarriers.com/docs/api)
+- [SearchCarriers terms](https://searchcarriers.com/terms-of-service)

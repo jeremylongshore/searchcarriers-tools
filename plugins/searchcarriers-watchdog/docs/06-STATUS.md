@@ -1,6 +1,6 @@
 # Watchdog — Status
 
-## Current state: 0.2.0 compatibility release
+## Current state: 0.3.0 compatibility release
 
 Watchdog implements the published v1 company-watch routes, current-state
 compliance checks, and local formatting for Slack, Telegram, email, and webhook
@@ -25,5 +25,6 @@ payloads.
 
 | Version | Date | Changes |
 |---|---|---|
+| 0.3.0 | 2026-09-23 | Pain-point skill rebuild, decision playbook, and behavioral eval specification |
 | 0.2.0 | 2026-09-22 | Documented watch routes, truthful alert boundary, current-state checks |
 | 0.1.0 | 2026-02-26 | Initial scaffold |

@@ -36,6 +36,45 @@ V3_COMPANY_SECTIONS = (
     "vetting_report",
 )
 
+# Public API v3 search filters.  The MCP layer accepts Python-friendly names
+# and this table is the single translation point to the published query names.
+# Keep this list synchronized with API-DISCOVERY.md and the route-contract tests.
+V3_SEARCH_FILTERS = {
+    "company_types": "companyTypes[]",
+    "radius_zipcode": "radiusZipcode",
+    "radius_miles": "radiusMiles",
+    "min_power_units": "minPowerUnits",
+    "max_power_units": "maxPowerUnits",
+    "min_trailers": "minTrailers",
+    "max_trailers": "maxTrailers",
+    "safety_score_present": "safetyScorePresent",
+    "min_bipd_coverage": "minBipdCoverage",
+    "max_bipd_coverage": "maxBipdCoverage",
+    "cargo_insurance_present": "cargoInsurancePresent",
+    "dot_registered_since": "dotRegisteredSince",
+    "dot_registered_before": "dotRegisteredBefore",
+    "latest_authority_granted_since": "latestAuthorityGrantedSince",
+    "latest_authority_granted_before": "latestAuthorityGrantedBefore",
+    "min_authority_age": "minAuthorityAge",
+    "max_authority_age": "maxAuthorityAge",
+    "include_authorities": "includeAuthorities[]",
+    "exclude_authorities": "excludeAuthorities[]",
+    "include_operation_types": "includeOperationTypes[]",
+    "exclude_operation_types": "excludeOperationTypes[]",
+    "include_equipment_types": "includeEquipmentTypes[]",
+    "include_cargo_carried": "includeCargoCarried[]",
+    "lane_origin_state": "laneOriginState",
+    "lane_origin_county_geoid": "laneOriginCountyGeoid",
+    "lane_origin_latitude": "laneOriginLatitude",
+    "lane_origin_longitude": "laneOriginLongitude",
+    "lane_origin_radius_miles": "laneOriginRadiusMiles",
+    "lane_destination_state": "laneDestinationState",
+    "lane_destination_county_geoid": "laneDestinationCountyGeoid",
+    "lane_destination_latitude": "laneDestinationLatitude",
+    "lane_destination_longitude": "laneDestinationLongitude",
+    "lane_destination_radius_miles": "laneDestinationRadiusMiles",
+}
+
 
 def company_fields(*sections: str) -> dict[str, str]:
     """Return the v3 ``fields`` parameter after validating section names."""
@@ -118,13 +157,14 @@ def normalize_v3_company(payload: Any) -> dict[str, Any]:
 
 
 def v3_search_params(
-    query: str,
-    search_type: str,
+    query: str = "",
+    search_type: str = "filters",
     *,
     page: int = 1,
     per_page: int = 10,
     state: str | None = None,
     city: str | None = None,
+    filters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Map public search intent to parameters accepted by API v3."""
     mapping = {
@@ -133,15 +173,25 @@ def v3_search_params(
         "name": "superSearchTerm",
         "text": "superSearchTerm",
     }
-    if search_type not in mapping:
+    if search_type not in {*mapping, "filters"}:
         raise ValueError(f"Unsupported v3 search type: {search_type}")
     params: dict[str, Any] = {
-        mapping[search_type]: query,
         "page": page,
         "perPage": per_page,
     }
+    if search_type != "filters":
+        if not query:
+            raise ValueError("A query is required for identifier or text search")
+        params[mapping[search_type]] = query
     if state:
         params["addressState"] = state.upper()
     if city:
         params["addressCity"] = city
+    for public_name, value in (filters or {}).items():
+        if value is None or value == "" or value == []:
+            continue
+        api_name = V3_SEARCH_FILTERS.get(public_name)
+        if api_name is None:
+            raise ValueError(f"Unsupported v3 search filter: {public_name}")
+        params[api_name] = value
     return params

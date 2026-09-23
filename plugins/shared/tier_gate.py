@@ -10,6 +10,7 @@ TOOL_TIERS: dict[str, str] = {
     "fleet_summary": "free",
     # Risk Engine (future)
     "risk_score": "pro",
+    "qualification_reports": "proplus",
     "vetting_check": "proplus",
     "insurance_check": "pro",
     "compliance_audit": "pro",

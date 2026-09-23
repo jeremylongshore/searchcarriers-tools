@@ -33,6 +33,7 @@ from mcp.types import TextContent, Tool  # noqa: E402
 from plugins.shared.api_contract import (  # noqa: E402
     API_V1_BASE,
     API_V3_BASE,
+    V3_SEARCH_FILTERS,
     company_fields,
     data_list,
     normalize_v3_company,
@@ -156,7 +157,7 @@ async def _carrier_lookup(arguments: dict[str, Any], api_key: str) -> dict[str, 
     Maps the caller's ``search_type`` (or auto-detects it) to the correct
     SearchCarriers query parameter and delegates entirely to the API.
     """
-    query: str = arguments["query"]
+    query = str(arguments.get("query") or "").strip()
     search_type: str = arguments.get("search_type", "auto") or "auto"
     state: str | None = arguments.get("state")
     city: str | None = arguments.get("city")
@@ -165,7 +166,9 @@ async def _carrier_lookup(arguments: dict[str, Any], api_key: str) -> dict[str, 
 
     # Determine the semantic search type. v3 uses docketNumber for MC/MX/FF
     # searches and silently ignores the old mcNumber parameter.
-    if search_type in ("auto", "") or search_type is None:
+    if not query:
+        resolved_type, param_value = "filters", ""
+    elif search_type in ("auto", "") or search_type is None:
         resolved_type, param_value = _detect_search_type(query)
     elif search_type in {"dot", "mc", "name", "scac", "vin"}:
         resolved_type, param_value = search_type, query
@@ -183,6 +186,11 @@ async def _carrier_lookup(arguments: dict[str, Any], api_key: str) -> dict[str, 
         params = {}
     else:
         url = f"{API_V3_BASE}/search"
+        advanced_filters = {
+            name: arguments.get(name)
+            for name in V3_SEARCH_FILTERS
+            if arguments.get(name) not in (None, "", [])
+        }
         params = v3_search_params(
             param_value,
             resolved_type,
@@ -190,6 +198,13 @@ async def _carrier_lookup(arguments: dict[str, Any], api_key: str) -> dict[str, 
             per_page=per_page,
             state=state,
             city=city,
+            filters=advanced_filters,
+        )
+
+    if resolved_type == "filters" and len(params) == 2:
+        return _error_payload(
+            "invalid_request",
+            "Provide a query or at least one documented search filter.",
         )
 
     async with httpx.AsyncClient(headers=_auth_headers(api_key), timeout=REQUEST_TIMEOUT) as client:
@@ -383,7 +398,8 @@ _TOOL_DEFINITIONS: list[Tool] = [
         description=(
             "Search the SearchCarriers database for motor carriers by DOT number, "
             "MC number, legal name, VIN, SCAC code, or free-text term. "
-            "Supports optional state and city filters. Returns paginated results. "
+            "Supports location, fleet size, insurance, registration, authority, "
+            "equipment, cargo, and lane filters. Returns paginated results. "
             "Min tier: free."
         ),
         inputSchema={
@@ -413,6 +429,39 @@ _TOOL_DEFINITIONS: list[Tool] = [
                     "type": "string",
                     "description": "City name to narrow results.",
                 },
+                "company_types": {"type": "array", "items": {"type": "string"}},
+                "radius_zipcode": {"type": "string"},
+                "radius_miles": {"type": "number"},
+                "min_power_units": {"type": "integer"},
+                "max_power_units": {"type": "integer"},
+                "min_trailers": {"type": "integer"},
+                "max_trailers": {"type": "integer"},
+                "safety_score_present": {"type": "boolean"},
+                "min_bipd_coverage": {"type": "number"},
+                "max_bipd_coverage": {"type": "number"},
+                "cargo_insurance_present": {"type": "boolean"},
+                "dot_registered_since": {"type": "string", "format": "date"},
+                "dot_registered_before": {"type": "string", "format": "date"},
+                "latest_authority_granted_since": {"type": "string", "format": "date"},
+                "latest_authority_granted_before": {"type": "string", "format": "date"},
+                "min_authority_age": {"type": "integer"},
+                "max_authority_age": {"type": "integer"},
+                "include_authorities": {"type": "array", "items": {"type": "string"}},
+                "exclude_authorities": {"type": "array", "items": {"type": "string"}},
+                "include_operation_types": {"type": "array", "items": {"type": "string"}},
+                "exclude_operation_types": {"type": "array", "items": {"type": "string"}},
+                "include_equipment_types": {"type": "array", "items": {"type": "string"}},
+                "include_cargo_carried": {"type": "array", "items": {"type": "string"}},
+                "lane_origin_state": {"type": "string"},
+                "lane_origin_county_geoid": {"type": "string"},
+                "lane_origin_latitude": {"type": "number"},
+                "lane_origin_longitude": {"type": "number"},
+                "lane_origin_radius_miles": {"type": "number"},
+                "lane_destination_state": {"type": "string"},
+                "lane_destination_county_geoid": {"type": "string"},
+                "lane_destination_latitude": {"type": "number"},
+                "lane_destination_longitude": {"type": "number"},
+                "lane_destination_radius_miles": {"type": "number"},
                 "page": {
                     "type": "integer",
                     "description": "Page number for paginated results (default: 1).",
@@ -424,7 +473,6 @@ _TOOL_DEFINITIONS: list[Tool] = [
                     "default": 10,
                 },
             },
-            "required": ["query"],
         },
     ),
     Tool(

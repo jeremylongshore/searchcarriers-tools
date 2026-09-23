@@ -1,6 +1,11 @@
 """Validate all plugin structures and configurations."""
 
 import json
+import re
+
+import yaml
+
+from plugins.shared.tier_gate import TOOL_TIERS
 
 REQUIRED_PLUGIN_FIELDS = ["name", "description"]
 TIER_VALUES = {"free", "basic", "pro", "proplus", "smb", "enterprise"}
@@ -36,6 +41,36 @@ class TestPluginJson:
             assert name.startswith("searchcarriers-"), (
                 f"{pj}: Plugin name must start with 'searchcarriers-'"
             )
+
+    def test_manifest_tools_match_runtime_and_tier_registry(self, all_plugin_jsons):
+        for pj in all_plugin_jsons:
+            data = json.loads(pj.read_text())
+            manifest_tools = {tool["name"]: tool["min_tier"] for tool in data.get("tools", [])}
+            server_files = list(pj.parent.parent.glob("scripts/*_mcp.py"))
+            assert len(server_files) == 1, f"{pj.parent.parent}: expected one MCP server"
+            runtime_tools = set(
+                re.findall(r'Tool\(\s*name="([a-z0-9_]+)"', server_files[0].read_text())
+            )
+            assert set(manifest_tools) == runtime_tools, (
+                f"{pj}: manifest tools {sorted(manifest_tools)} do not match "
+                f"runtime tools {sorted(runtime_tools)}"
+            )
+            for tool, tier in manifest_tools.items():
+                assert TOOL_TIERS.get(tool) == tier, (
+                    f"{pj}: {tool} tier {tier} does not match shared registry "
+                    f"{TOOL_TIERS.get(tool)!r}"
+                )
+
+    def test_package_versions_match_root_release(self, repo_root, all_plugin_jsons):
+        release = (repo_root / "VERSION").read_text().strip()
+        for pj in all_plugin_jsons:
+            assert json.loads(pj.read_text())["version"] == release
+
+        for skill in repo_root.glob("**/SKILL.md"):
+            if ".venv" in skill.parts:
+                continue
+            frontmatter = yaml.safe_load(skill.read_text().split("---", 2)[1])
+            assert frontmatter["version"] == release, f"{skill}: version drift"
 
 
 class TestPluginStructure:

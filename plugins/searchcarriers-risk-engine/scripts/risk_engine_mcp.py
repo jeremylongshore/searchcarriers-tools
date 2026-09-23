@@ -34,8 +34,10 @@ from mcp.server.stdio import stdio_server  # noqa: E402
 from mcp.types import TextContent, Tool  # noqa: E402
 
 from plugins.shared.api_contract import (  # noqa: E402  # gitleaks:allow -- symbol names
+    API_V2_BASE,
     API_V3_BASE,
     normalize_v3_company,
+    response_data,
 )
 from plugins.shared.tier_gate import TierError, check_tier  # noqa: E402
 
@@ -45,7 +47,7 @@ from plugins.shared.tier_gate import TierError, check_tier  # noqa: E402
 API_BASE = "https://searchcarriers.com/api/v1"
 SEARCH_BASE = API_V3_BASE
 REQUEST_TIMEOUT = 15.0  # seconds
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 # National OOS rate benchmarks (FMCSA 2023 averages)
 NATIONAL_OOS_VEHICLE_AVG = 21.0  # percent
@@ -59,14 +61,13 @@ MIN_HAZMAT_COVERAGE = 5_000_000
 MCS150_STALE_YEARS = 2
 MCS150_CRITICAL_YEARS = 4
 
-# Default vetting rule thresholds
-DEFAULT_VETTING_RULES: dict[str, Any] = {
-    "operating_status": "authorized",
-    "min_insurance_coverage": 750_000,
-    "max_oos_rate": 30.0,
-    "max_crash_rate_per_pu": 0.5,
-    "authority_active": True,
-    "mcs150_current": True,
+VETTING_RULE_KEYS = {
+    "operating_status",
+    "min_insurance_coverage",
+    "max_oos_rate",
+    "max_crash_rate_per_pu",
+    "authority_active",
+    "mcs150_current",
 }
 
 
@@ -506,12 +507,20 @@ async def _vetting_check(arguments: dict[str, Any], api_key: str) -> dict[str, A
     The overall verdict is PASS when all rules pass, FAIL when any rule
     fails, and REVIEW when there are no failures but at least one review.
 
-    Custom thresholds can be provided via the ``rules`` argument, which
-    is merged over the defaults.
+    The caller must provide the complete policy through ``rules``. This tool
+    deliberately has no hidden default thresholds; use ``qualification_reports``
+    when SearchCarriers owns the named qualification.
     """
     dot: str = str(arguments["dot_number"]).strip()
-    custom_rules: dict[str, Any] = arguments.get("rules") or {}
-    rules = {**DEFAULT_VETTING_RULES, **custom_rules}
+    rules: dict[str, Any] = arguments.get("rules") or {}
+    missing_rules = sorted(VETTING_RULE_KEYS - set(rules))
+    if missing_rules:
+        return _error_payload(
+            "invalid_policy",
+            "vetting_check requires a complete caller-owned policy; "
+            f"missing keys: {', '.join(missing_rules)}. Use qualification_reports "
+            "for SearchCarriers named qualification results.",
+        )
 
     search_url = f"{SEARCH_BASE}/search"
 
@@ -792,6 +801,32 @@ async def _vetting_check(arguments: dict[str, Any], api_key: str) -> dict[str, A
             "totalDrivers": carrier.get("totalDrivers"),
         },
         "_pipeline": _pipeline_meta("vetting_check", dot),
+    }
+
+
+async def _qualification_reports(arguments: dict[str, Any], api_key: str) -> dict[str, Any]:
+    """Fetch SearchCarriers personal and team qualification results.
+
+    The upstream service owns qualification names, criteria, evidence, and
+    Pass/Review/Fail evaluation.  This wrapper intentionally preserves that
+    response instead of translating it into the Risk Engine's legacy defaults.
+    """
+    dot = str(arguments["dot_number"]).strip()
+    async with httpx.AsyncClient(headers=_auth_headers(api_key), timeout=REQUEST_TIMEOUT) as client:
+        try:
+            raw = await _get(
+                client,
+                f"{API_V2_BASE}/company/{dot}/qualification-reports",
+            )
+        except RuntimeError as exc:
+            return _error_payload("api_error", str(exc))
+
+    return {
+        "dot_number": dot,
+        "api_version": "v2",
+        "qualification_reports": response_data(raw),
+        "decision_owner": "upstream_named_qualification",
+        "_pipeline": _pipeline_meta("qualification_reports", dot),
     }
 
 
@@ -1203,7 +1238,7 @@ _TOOL_DEFINITIONS: list[Tool] = [
     Tool(
         name="risk_score",
         description=(
-            "Calculate a composite risk score (0-100, lower is safer) for a carrier "
+            "Calculate a disclosed legacy advisory score (0-100, lower is safer) for a carrier "
             "identified by DOT number. Evaluates operating status, safety rating, OOS "
             "rates vs national averages, crash rate per power unit, insurance status, "
             "operating authority, and MCS-150 filing age. Returns a named risk level "
@@ -1224,11 +1259,9 @@ _TOOL_DEFINITIONS: list[Tool] = [
     Tool(
         name="vetting_check",
         description=(
-            "Evaluate a carrier against a structured set of vetting rules and return a "
-            "PASS / REVIEW / FAIL verdict. Default rules cover operating status, minimum "
-            "insurance coverage ($750K), OOS rate ceiling (30%), crash rate per power unit "
-            "(0.5), active operating authority, and MCS-150 currency (within 2 years). "
-            "Override any threshold via the optional 'rules' dict. "
+            "Evaluate a carrier against a complete caller-supplied rule set and return a "
+            "PASS / REVIEW / FAIL verdict. This tool has no hidden default thresholds; "
+            "prefer qualification_reports for SearchCarriers named qualifications. "
             "Min tier: proplus."
         ),
         inputSchema={
@@ -1241,11 +1274,30 @@ _TOOL_DEFINITIONS: list[Tool] = [
                 "rules": {
                     "type": "object",
                     "description": (
-                        "Optional dict of custom rule thresholds to override the defaults. "
-                        "Accepted keys: operating_status (str), min_insurance_coverage (number), "
+                        "Required complete caller-owned policy. Accepted keys: "
+                        "operating_status (str), min_insurance_coverage (number), "
                         "max_oos_rate (number, percent), max_crash_rate_per_pu (number), "
                         "authority_active (bool), mcs150_current (bool)."
                     ),
+                },
+            },
+            "required": ["dot_number", "rules"],
+        },
+    ),
+    Tool(
+        name="qualification_reports",
+        description=(
+            "Fetch SearchCarriers personal and team qualification results for a DOT "
+            "number from the API v2 qualification-reports endpoint. Preserves upstream "
+            "Pass / Review / Fail evidence and named criteria without applying the "
+            "Risk Engine's legacy default thresholds. Min tier: proplus."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "dot_number": {
+                    "type": "string",
+                    "description": "The carrier's USDOT number.",
                 },
             },
             "required": ["dot_number"],
@@ -1297,6 +1349,7 @@ _TOOL_DEFINITIONS: list[Tool] = [
 _TOOL_HANDLERS = {
     "risk_score": _risk_score,
     "vetting_check": _vetting_check,
+    "qualification_reports": _qualification_reports,
     "insurance_check": _insurance_check,
     "compliance_audit": _compliance_audit,
 }

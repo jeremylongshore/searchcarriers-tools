@@ -48,7 +48,7 @@ from plugins.shared.tier_gate import TierError, check_tier  # noqa: E402
 API_BASE = "https://searchcarriers.com/api/v1"
 SEARCH_BASE = API_V3_BASE
 REQUEST_TIMEOUT = 20.0  # seconds
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 # Federal insurance minimums (USD)
 INSURANCE_MIN_GENERAL = 750_000

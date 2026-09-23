@@ -5,7 +5,7 @@ tools: Read, Grep, Bash
 disallowedTools: []
 model: inherit
 color: orange
-version: 0.2.0
+version: 0.3.0
 author: Jeremy Longshore
 tags: [searchcarriers, motor-carrier, risk-analyst]
 skills: [searchcarriers-risk-engine]

@@ -16,18 +16,28 @@ from conftest import assert_no_error, save_artifact  # noqa: E402
 from risk_engine_mcp import (  # noqa: E402
     _compliance_audit,
     _insurance_check,
+    _qualification_reports,
     _risk_score,
     _vetting_check,
 )
 
 DOT_PRIMARY = "1234567"
 
+SMOKE_RULES = {
+    "operating_status": "authorized",
+    "min_insurance_coverage": 750_000,
+    "max_oos_rate": 30.0,
+    "max_crash_rate_per_pu": 0.5,
+    "authority_active": True,
+    "mcs150_current": True,
+}
+
 VALID_RISK_LEVELS = {"low", "medium", "elevated", "high"}
 
 
 @pytest.mark.integration
 class TestSmokeRiskEngine:
-    """Live smoke tests for all four Risk Engine handler functions."""
+    """Live smoke tests for the Risk Engine handler functions."""
 
     async def test_risk_score(self, live_api_key, smoke_reports_dir):
         """Risk score returns a 0-100 score, a named risk level, and factor breakdown."""
@@ -62,7 +72,9 @@ class TestSmokeRiskEngine:
 
     async def test_vetting_check(self, live_api_key, smoke_reports_dir):
         """Vetting check returns a PASS/FAIL/REVIEW verdict and a rules_checked count."""
-        result = await _vetting_check({"dot_number": DOT_PRIMARY}, live_api_key)
+        result = await _vetting_check(
+            {"dot_number": DOT_PRIMARY, "rules": SMOKE_RULES}, live_api_key
+        )
 
         assert_no_error(result)
 
@@ -79,6 +91,15 @@ class TestSmokeRiskEngine:
         )
 
         save_artifact(smoke_reports_dir, "vetting_check", result)
+
+    async def test_qualification_reports(self, live_api_key, smoke_reports_dir):
+        """Named qualification reports preserve the API v2 result envelope."""
+        result = await _qualification_reports({"dot_number": DOT_PRIMARY}, live_api_key)
+
+        assert_no_error(result)
+        assert result["api_version"] == "v2"
+        assert "qualification_reports" in result
+        save_artifact(smoke_reports_dir, "qualification_reports", result)
 
     async def test_insurance_check(self, live_api_key, smoke_reports_dir):
         """Insurance check returns status and active/lapsed policy data."""

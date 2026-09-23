@@ -75,6 +75,34 @@ class TestCarrierLookup:
 
         assert route.calls[0].request.url.params["superSearchTerm"] == "Example Freight"
 
+    async def test_filter_only_lane_and_insurance_search_uses_v3_contract(self, fake_api_key):
+        with respx.mock(assert_all_called=True) as router:
+            route = router.get(f"{API_V3_BASE}/search").mock(
+                return_value=httpx.Response(200, json={"data": []})
+            )
+            result = await _carrier_lookup(
+                {
+                    "min_power_units": 5,
+                    "min_bipd_coverage": 1_000_000,
+                    "lane_origin_state": "AL",
+                    "lane_destination_state": "TX",
+                    "include_equipment_types": ["VAN"],
+                },
+                fake_api_key,
+            )
+
+        params = route.calls[0].request.url.params
+        assert params["minPowerUnits"] == "5"
+        assert params["minBipdCoverage"] == "1000000"
+        assert params["laneOriginState"] == "AL"
+        assert params["laneDestinationState"] == "TX"
+        assert params.get_list("includeEquipmentTypes[]") == ["VAN"]
+        assert result["search_type_used"] == "filters"
+
+    async def test_empty_filter_search_is_rejected_without_api_call(self, fake_api_key):
+        result = await _carrier_lookup({}, fake_api_key)
+        assert_error_payload(result, "invalid_request")
+
     async def test_vin_uses_dedicated_v1_path(self, fake_api_key):
         vin = "1M8GDM9AXKP042788"
         with respx.mock(assert_all_called=True) as router:

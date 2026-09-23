@@ -1,15 +1,18 @@
 # SearchCarriers Tools
 
-**Motor carrier intelligence for Claude Code.**
+**Evidence-driven motor carrier operations for Claude Code and MCP clients.**
 
-Search, vet, and monitor 4M+ motor carriers directly from your terminal. Five plugins and fourteen skills provide structured carrier data -- carrier lookups, risk scoring, vetting reports, compliance monitoring, and TMS integration, all through natural language.
+Search, source, qualify, monitor, and reconcile motor carriers directly from
+your terminal. Five plugins, fourteen focused skills, and seven composed
+workflows turn SearchCarriers API evidence into bounded operational decisions.
 
 The tools are open source under Apache-2.0. They are an independent client for
 the SearchCarriers service; API access and production data use still require an
 appropriate [SearchCarriers](https://searchcarriers.com/lander) account and are
 subject to its terms.
 
-Built for freight brokers, safety teams, and logistics ops who need answers, not dashboards.
+Built for freight brokers, safety teams, and logistics operations that need
+sourceable evidence, visible unknowns, and a concrete next action.
 
 ---
 
@@ -62,7 +65,8 @@ Then try your first lookup in Claude Code:
 
 ## Stackable Pipeline
 
-The three stackable plugins chain together automatically. Claude routes data through the pipeline without manual intervention.
+The three stackable plugins cover retrieval, analysis, and output. The caller
+chooses when to pass evidence between stages and remains the decision owner.
 
 ```
                         STACKABLE PIPELINE
@@ -73,9 +77,10 @@ The three stackable plugins chain together automatically. Claude routes data thr
   |   (INPUT)             |---->|   (ANALYSIS)           |---->|   (OUTPUT)              |
   |                       |     |                        |     |                         |
   |   carrier_lookup      |     |   risk_score           |     |   generate_report       |
-  |   carrier_profile     |     |   vetting_check        |     |   generate_fleet        |
-  |   entity_map          |     |   insurance_check      |     |   generate_compare      |
-  |   fleet_summary       |     |   compliance_audit     |     |   export_data           |
+  |   carrier_profile     |     |   qualification_reports|     |   generate_fleet        |
+  |   entity_map          |     |   vetting_check        |     |   generate_compare      |
+  |   fleet_summary       |     |   insurance_check      |     |   export_data           |
+  |                       |     |   compliance_audit     |     |                         |
   |                       |     |                        |     |                         |
   |   Min: Free           |     |   Min: Pro             |     |   Min: Pro              |
   +-----------------------+     +------------------------+     +-------------------------+
@@ -103,13 +108,14 @@ The three stackable plugins chain together automatically. Claude routes data thr
 
 ## Skill Catalog
 
-14 skills organized by category. Each skill is a standalone `.md` file that teaches Claude domain-specific freight data interpretation.
+Fourteen skills are organized by carrier job. Each package includes a focused
+`SKILL.md`, a decision playbook, and a behavioral `eval-spec.yaml`.
 
 ### Search & Discovery
 
 | Skill | Trigger Phrases | Description |
 |-------|----------------|-------------|
-| `searchcarriers-carrier-lookup` | "look up carrier", "find DOT", "search MC number" | Search carriers by DOT, MC, name, or SCAC from 4M+ companies |
+| `searchcarriers-carrier-lookup` | "look up carrier", "source this lane", "find DOT" | Resolve identities or source candidates with documented fleet, insurance, equipment, cargo, and lane filters |
 | `searchcarriers-vin-decoder` | "decode VIN", "VIN lookup", "who owns this truck" | Resolve VINs to owning carriers and equipment details |
 | `searchcarriers-entity-mapper` | "map entity", "related companies", "corporate family" | Map relationships between carriers, brokers, and shippers |
 
@@ -117,7 +123,7 @@ The three stackable plugins chain together automatically. Claude routes data thr
 
 | Skill | Trigger Phrases | Description |
 |-------|----------------|-------------|
-| `searchcarriers-safety-scorer` | "safety score", "how safe is", "rate this carrier" | Interpret safety ratings, crash rates, and BASIC scores into plain-language assessments |
+| `searchcarriers-safety-scorer` | "explain safety", "how safe is", "review this record" | Interpret ratings, exposure, crashes, and BASIC evidence without inventing an official score |
 | `searchcarriers-inspection-analyzer` | "analyze inspections", "violation history", "OOS rate" | Analyze inspection history, violation patterns, and out-of-service trends |
 | `searchcarriers-compliance-monitor` | "compliance check", "authority status", "operating authority" | Monitor authority status, insurance requirements, and regulatory compliance |
 
@@ -125,10 +131,10 @@ The three stackable plugins chain together automatically. Claude routes data thr
 
 | Skill | Trigger Phrases | Description |
 |-------|----------------|-------------|
-| `searchcarriers-insurance-validator` | "check insurance", "coverage valid", "insurance status" | Validate insurance coverage, detect lapses, verify policy requirements |
+| `searchcarriers-insurance-validator` | "check insurance", "coverage valid", "insurance status" | Reconcile filings with requirements for the exact authority, cargo, entity, and vehicle |
 | `searchcarriers-authority-checker` | "check authority", "authority history", "revocation history" | Verify operating authority status and track authority change history |
-| `searchcarriers-vetting-rules` | "vet this carrier", "vetting criteria", "pass/fail rules" | Apply custom vetting rules with configurable thresholds (min power units, max crash rate, etc.) |
-| `searchcarriers-fraud-detector` | "fraud check", "red flags", "suspicious carrier" | Detect fraud indicators: chameleon carriers, new authorities post-revocation, address anomalies |
+| `searchcarriers-vetting-rules` | "vet this carrier", "run qualification", "pass/review/fail" | Run a named qualification and preserve rule-level evidence and missing-data handling |
+| `searchcarriers-fraud-detector` | "fraud check", "identity mismatch", "suspicious carrier" | Triage identity anomalies and prescribe independent verification without making an accusation |
 
 ### Operations
 
@@ -136,7 +142,7 @@ The three stackable plugins chain together automatically. Claude routes data thr
 |-------|----------------|-------------|
 | `searchcarriers-bulk-processor` | "bulk lookup", "batch carriers", "process CSV" | Batch-process carrier lists from CSV with structured results |
 | `searchcarriers-data-exporter` | "export data", "download report", "generate CSV" | Export carrier data in multiple formats (JSON, CSV, Markdown) |
-| `searchcarriers-contact-verifier` | "verify contact", "check phone", "validate email" | Cross-reference carrier contact information against FMCSA records |
+| `searchcarriers-contact-verifier` | "verify contact", "new dispatch email", "check phone" | Compare contact evidence and require a trusted-channel callback for material changes |
 | `searchcarriers-tms-connector` | "sync TMS", "push to TMS", "TMS update" | Push/pull carrier data to TMS platforms on status changes |
 
 ---
@@ -186,10 +192,14 @@ SearchCarriers capabilities currently span three API versions:
 - v2 for qualification reports
 - v1 for VIN/SCAC lookup, detailed history, export, and watches
 
-The exact routes, verified parameter names, data-handling boundary, and source
+The exact routes, advanced search filters, verified parameter names,
+data-handling boundary, and source
 links live in **[API-DISCOVERY.md](API-DISCOVERY.md)**. In particular, v3 uses
 `docketNumber`, `perPage`, `addressState`, and `addressCity`; older names may be
 silently ignored even when the API returns HTTP 200.
+
+The product research behind each workflow is recorded in
+**[docs/PAIN-POINT-RESEARCH.md](docs/PAIN-POINT-RESEARCH.md)**.
 
 ---
 
@@ -338,7 +348,7 @@ searchcarriers/
 ├── API-DISCOVERY.md             # Full API reference
 ├── MASTER-BLUEPRINT.md          # Architecture decisions
 ├── CHANGELOG.md
-├── VERSION                      # 0.2.0
+├── VERSION                      # 0.3.0
 └── LICENSE                      # Apache-2.0
 ```
 
@@ -361,13 +371,18 @@ Skills follow the `/skill-creator` specification. Required sections in every SKI
 
 ## Architecture Note
 
-**Thin MCP servers + structured skills.**
+**Versioned API adapters + evidence-driven skills.**
 
-The MCP servers are thin API callers. They hit SearchCarriers endpoints and return raw data. No business logic duplication. No data transformation.
+The MCP servers own authentication, version routing, response normalization,
+tier gates, and deterministic operations such as batch checkpoints, policy-rule
+evaluation, and report rendering. The shared API contract keeps v3, v2, and v1
+capabilities explicit and makes unknown parameters fail visibly.
 
-The skills layer is where interpretation happens. Skills teach Claude how to read raw FMCSA data and explain it in plain language, chain lookups into pipelines (search -> inspect -> assess -> report), apply configurable vetting rules (min power units, max crash rate), format human-readable reports from 143-field carrier objects, and produce pass/review/fail recommendations.
-
-In short: the API returns carrier records, the skills layer adds interpretation, chaining, formatting, and judgment.
+The skills define the operational decision: which evidence to fetch, how to
+separate API facts from policy and inference, how missing data affects the
+result, and which person owns the next action. Named qualifications preserve
+SearchCarriers Pass/Review/Fail evidence; local vetting requires a complete
+caller-owned policy.
 
 ---
 

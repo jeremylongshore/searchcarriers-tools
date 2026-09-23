@@ -1,155 +1,132 @@
 ---
 name: searchcarriers-compliance-dashboard
-description: Build a current-state compliance dashboard for every carrier on the SearchCarriers watch list. Use when running weekly compliance review or exception triage.
-allowed-tools: Read,Grep,Bash(python:*)
-metadata:
-  tier: proplus
-version: 0.2.0
+description: "Analyzes verified SearchCarriers evidence for carrier panel compliance dashboard. Use when a user asks, \"Build a weekly compliance dashboard for our\u2026\". Trigger with \"Build a weekly compliance\u2026\"."
+allowed-tools: Read, Bash(curl:*), Bash(python:*)
+argument-hint: '[DOT, docket, VIN, carrier list, or workflow input]'
+version: 0.3.0
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: Apache-2.0
-compatibility: Claude Code or another MCP-capable client; Python 3.10+; network access to searchcarriers.com; an appropriate SearchCarriers API subscription.
+compatibility: Designed for Claude Code and MCP-capable clients; requires Python 3.10+, network access to searchcarriers.com, and an eligible SearchCarriers plan.
+metadata:
+  tier: proplus
 tags:
 - searchcarriers
 - motor-carrier
-- workflow
+- evidence
+- proplus
 ---
 
-# Compliance Dashboard — Workflow Skill
+# Carrier Panel Compliance Dashboard
+
+Carrier Panel Compliance Dashboard helps an operator build an as-of panel dashboard that exposes stale, missing, and high-priority evidence. It solves this operational failure: A green dashboard can hide old snapshots, low-exposure carriers, and failed API calls.
 
 ## Overview
 
-Build a point-in-time compliance dashboard from the documented watch list and
-current API evidence. This workflow never invents monitoring states, baselines,
-historical drift, alert counts, or email delivery.
+The workflow is **identify → fetch → reconcile → decide → act**. API data is
+licensed research evidence, not an endorsement, official safety rating, or guarantee.
+Keep the human or named company policy as the decision owner.
 
-> **API contract:** Use the repository `API-DISCOVERY.md` for the current
-> v3/v2/v1 route map. `monitor_compliance` evaluates current evidence; it does
-> not provide a historical trend feed.
+The bounded result is: Return CURRENT, PARTIAL, or STALE; collection failure is never green.
 
 ## Prerequisites
 
-- SearchCarriers Pro Plus or Enterprise access as required by the tools
-- `searchcarriers-watchdog`, `searchcarriers-risk-engine`, and
-  `searchcarriers-ops-reporter` MCP servers running
-- `SEARCHCARRIERS_API_KEY` set in the process environment
-- At least one company watch configured with `manage_watchlist`
+- Set `SEARCHCARRIERS_API_KEY` to a SearchCarriers bearer token with the required tier.
+- Confirm the subject identifier, intended movement or decision, and named policy when applicable.
+- Read [`API-DISCOVERY.md`](https://github.com/jeremylongshore/searchcarriers-tools/blob/main/API-DISCOVERY.md) with the `Read` tool before changing routes or parameters.
+- Use `Bash(curl:*)` for API requests and `Bash(python:*)` only for local JSON validation or deterministic reshaping.
+
+Authentication is `Authorization: Bearer $SEARCHCARRIERS_API_KEY`; never print,
+commit, or place the token in a URL. Do not commit live API responses.
 
 ## Instructions
 
-### 1. Read the current watch list
+### Step 1: Define the decision
 
-Call `manage_watchlist` with `action: "list"`. Use only fields actually returned
-by the tool: `id`, `dot_number`, and `carrier_name`. If the list is empty, stop
-with a clear instruction to add a carrier.
+Write one sentence naming the subject, the operational use, the evidence window,
+and who owns the final decision. If a policy threshold is required, obtain the
+named policy instead of inventing an “industry standard.”
 
-```python
-watch_response = manage_watchlist(action="list")
-carriers = watch_response.get("carriers", [])
-if not carriers:
-    raise RuntimeError("No carriers are currently on the watch list.")
+### Step 2: Resolve identity
+
+Prefer USDOT or docket identifiers. Treat name-only matches as ambiguous until
+legal name, location, and identifiers agree. Stop on conflicting identity.
+
+### Step 3: Fetch the smallest evidence set
+
+**Routes/tools:** GET /api/v3/company/{dot}; GET /api/v2/company/{dot}/qualification-reports; company watch routes
+
+Fetch each panel member, stamp freshness, separate policy Fail/Review/Pass from collection errors, and reconcile headline counts to carrier rows.
+
+For a direct API request, use the documented route and selected fields:
+
+```bash
+curl --fail-with-body --get   "https://searchcarriers.com/api/v3/company/$DOT_NUMBER"   --header "Authorization: Bearer $SEARCHCARRIERS_API_KEY"   --header "Accept: application/json"   --data-urlencode "fields=contact,authorities,insurance,safety,operation,risk_factors"
 ```
 
-### 2. Run both compliance views
+Use the specialty v1 or qualification v2 route listed above when the job requires
+it; never rewrite every route to the highest version.
 
-For every DOT number, call:
+### Step 4: Reconcile evidence
 
-1. `compliance_audit` from Risk Engine for the regulatory audit.
-2. `monitor_compliance` from Watchdog for the current authority, insurance,
-   operating-status, and filing-freshness checks.
+Capture: Panel input hash, run/as-of, per-carrier evidence status, qualification, watch state, errors, and aging.
 
-Process carriers sequentially or with bounded concurrency. Preserve every
-missing-evidence result and tool error; never convert missing data into a pass.
+Keep facts, policy tests, modeled indicators, and analyst judgment in separate
+fields. Preserve zeros; represent absent fields as `unknown` with a reason.
 
-```python
-rows = []
-for carrier in carriers:
-    dot = carrier["dot_number"]
-    audit = compliance_audit(dot_number=dot)
-    current = monitor_compliance(dot_number=dot)
-    rows.append(
-        {
-            "dot_number": dot,
-            "carrier_name": carrier.get("carrier_name", "Unknown Carrier"),
-            "audit": audit,
-            "current": current,
-        }
-    )
-```
+### Step 5: Decide and prescribe the next action
 
-### 3. Classify review priority
+Return CURRENT, PARTIAL, or STALE; collection failure is never green.
 
-Use evidence from both tools:
-
-| Priority | Trigger | Action |
-|---|---|---|
-| Critical | Either tool reports a critical failure or no active authority/insurance | Stop tendering and verify source records immediately |
-| High | Failed compliance checks without a critical condition | Review before the next load |
-| Review | Missing evidence, warnings, or conflicting results | Verify the missing source data |
-| Clear | All available checks pass with no missing evidence | Continue normal monitoring |
-
-If the two tools disagree, show both results and classify the carrier as
-`Review`. Do not average conflicting statuses into a synthetic score.
-
-### 4. Build the dashboard
-
-Present these sections:
-
-1. Run timestamp and carrier count
-2. Priority totals
-3. Carrier table with DOT, name, audit result, current compliance status, failed
-   checks, and missing evidence
-4. Critical and high-priority action queue
-5. Tool errors and skipped records
-6. Source and limitations note
-
-Example table:
-
-```markdown
-| DOT | Carrier | Audit | Current status | Failed checks | Priority |
-|---|---|---|---|---|---|
-| 1234567 | Example Freight LLC | Review | drift | insurance coverage | High |
-```
-
-### 5. Generate optional carrier reports
-
-For a critical or high-priority carrier, call `generate_report` for the DOT and
-link or embed the resulting point-in-time report. Do not generate reports for
-all carriers unless the user asks; large report sets increase API and rendering
-cost.
-
-### 6. Format an external notification when requested
-
-`route_alert` formats a caller-supplied event for Slack, Telegram, email, or a
-webhook. It does not transmit the message. Return the formatted payload and say
-which external system must deliver it.
+**Next action:** Refresh failed/stale rows and assign policy reviews before relying on the dashboard.
 
 ## Output
 
-Return the dashboard, action queue, evidence gaps, run timestamp, and the list
-of DOT numbers successfully checked. Include a plain statement that the output
-is a point-in-time screening aid and does not constitute an official safety
-rating or legal advice. Never include an API token or raw bulk API response.
+Return this compact decision record:
+
+```yaml
+subject: "DOT or input identifier"
+purpose: "the exact operational question"
+status: "bounded status from this skill"
+evidence:
+  - fact: "observed value"
+    source: "API route or MCP tool"
+    as_of: "timestamp or source date"
+missing_evidence: []
+policy_or_method: "named policy, evidence-only, or disclosed model"
+next_action: "owner and concrete action"
+limitations: "coverage, freshness, and inference limits"
+```
+
+Every material claim needs a source and as-of value. Totals must reconcile to
+detail rows. The output must say whether any result is partial.
 
 ## Examples
 
-- "Build this week's compliance dashboard for every watched carrier."
-- "Show only critical and high-priority compliance exceptions for the watch list."
-- "Format the critical findings from this dashboard for Slack."
+**Should trigger:** “Build a weekly compliance dashboard for our approved panel.”
+
+Produce the bounded record, show the decisive evidence and unknowns, and give one
+operational next action.
+
+**Should not trigger:** “Verify one insurance certificate.”
+
+Route that request to the narrower SearchCarriers skill whose job matches it.
 
 ## Error Handling
 
-| Condition | Action |
+| Condition | Required response |
 |---|---|
-| Watch list unavailable | Stop; report the structured tool error |
-| Empty watch list | Stop; suggest `manage_watchlist(action="add", dot_number=...)` |
-| One carrier fails | Preserve the failure in the dashboard and continue |
-| All carrier checks fail | Stop; report likely authentication, plan, or service failure |
-| `get_alerts` returns `endpoint_unavailable` | Treat as expected; do not retry an undocumented route |
-| Notification formatting fails | Return the dashboard and mark the message as unformatted |
+| Identity conflict or multiple matches | Stop and return `REVIEW`; request a USDOT or docket. |
+| Missing field or empty data | Missing or old snapshots appear in a dedicated queue and do not count as compliant. |
+| `401` | Stop; report invalid/missing credentials without exposing them. |
+| `403` | Stop; identify the route and required plan/access. |
+| `404` | Recheck the identifier and route; do not treat it as adverse carrier evidence. |
+| `422` | Remove unsupported parameters and compare with the API contract. |
+| `429` | Honor `Retry-After`; use bounded retry and preserve progress. |
+| `5xx` or timeout | Retry with bounded backoff, then return partial/unavailable. |
 
 ## Resources
 
-- Repository `API-DISCOVERY.md`
-- `plugins/searchcarriers-watchdog/SCHEMA.md`
-- `plugins/searchcarriers-risk-engine/SCHEMA.md`
-- `plugins/searchcarriers-ops-reporter/SCHEMA.md`
+- [Decision playbook](references/playbook.md)
+- [Repository API contract](https://github.com/jeremylongshore/searchcarriers-tools/blob/main/API-DISCOVERY.md)
+- [SearchCarriers public API](https://searchcarriers.com/docs/api)
+- [SearchCarriers terms](https://searchcarriers.com/terms-of-service)

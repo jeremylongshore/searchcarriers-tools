@@ -58,7 +58,7 @@ from mcp.types import TextContent, Tool  # noqa: E402
 API_BASE = "https://searchcarriers.com/api/v1"
 SEARCH_BASE = API_V3_BASE
 REQUEST_TIMEOUT = 20.0  # seconds — slightly higher for multi-fetch tools
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 # OOS rate benchmarks (FMCSA 2023 national averages)
 NATIONAL_OOS_VEHICLE_AVG = 21.0  # percent

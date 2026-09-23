@@ -91,20 +91,19 @@ As a **compliance analyst**, I want to **audit a carrier's regulatory compliance
 
 ### FR-02: Vetting Rules Engine
 
-**Description:** The `vetting_check` tool evaluates a carrier against a configurable set of qualification rules and returns a PASS/REVIEW/FAIL verdict.
+**Description:** `qualification_reports` preserves SearchCarriers personal and
+team named qualification results from API v2. `vetting_check` applies a complete
+caller-supplied policy and has no hidden default thresholds.
 
-**Default Rules:**
+**Policy requirements:**
 
-| Rule ID | Rule | FAIL Threshold | REVIEW Threshold |
-|---------|------|----------------|-----------------|
-| VET-01 | Active operating authority | Not active | Pending |
-| VET-02 | BIPD insurance minimum | < $750,000 | < $1,000,000 |
-| VET-03 | Cargo insurance minimum | < $100,000 | < $250,000 |
-| VET-04 | Safety rating | Unsatisfactory | Conditional |
-| VET-05 | Vehicle OOS rate | > 40% | > 25% |
-| VET-06 | Driver OOS rate | > 15% | > 10% |
-| VET-07 | Authority age | < 90 days | < 180 days |
-| VET-08 | MCS-150 filing age | > 24 months | > 18 months |
+- Name the customer, commodity, or company policy that owns the decision.
+- Provide every threshold used by `vetting_check`, or use the upstream named
+  qualification result.
+- Keep observed values, thresholds, missing evidence, and overrides in the
+  result.
+- Treat missing required evidence according to the named policy; never pass it
+  silently.
 
 **Verdict Logic:**
 - **PASS**: All rules pass
@@ -179,7 +178,8 @@ As a **compliance analyst**, I want to **audit a carrier's regulatory compliance
 
 ### FR-08: Configurable Thresholds
 
-**Description:** The `vetting_check` tool supports user-provided thresholds that override defaults.
+**Description:** The `vetting_check` tool requires a complete caller-owned
+policy. It never fills absent rules from package defaults.
 
 **Accepted Overrides:**
 - `min_bipd`: Minimum BIPD coverage amount
@@ -189,7 +189,7 @@ As a **compliance analyst**, I want to **audit a carrier's regulatory compliance
 - `min_authority_age_days`: Minimum authority age in days
 - `max_mcs150_age_months`: Maximum MCS-150 filing age in months
 
-**Priority:** P1 (defaults work for MVP; custom thresholds for Pro+ users)
+**Priority:** P0
 
 ## MVP Scope
 
@@ -199,7 +199,8 @@ Historical v0.1.0 planning scope:
 - [ ] `insurance_check` -- coverage analysis with gap detection
 - [ ] `compliance_audit` -- MCS-150, authority, and regulatory checks
 - [ ] `vetting_check` -- configurable rules engine with PASS/REVIEW/FAIL
-- [ ] Tier gating on all four tools
+- [ ] `qualification_reports` -- API v2 named qualification evidence
+- [ ] Tier gating on all five tools
 - [ ] Structured JSON output with meta blocks and disclaimers
 - [ ] Missing data handling with confidence indicators
 
