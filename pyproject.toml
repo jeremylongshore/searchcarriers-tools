@@ -33,7 +33,7 @@ dev = [
     "respx>=0.21",
     "ruff>=0.4",
     "pyyaml>=6.0",
-    "mcp>=1.0,<2",  # 2.x removed the Server.list_tools()/call_tool() decorators the plugin servers use
+    "mcp>=1.0,<3",  # 2.x removed the Server.list_tools()/call_tool() decorators the plugin servers use
 ]
 
 [tool.setuptools]
