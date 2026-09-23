@@ -1,0 +1,49 @@
+{
+  "data": [
+    {
+      "vin": "SYNTHETICVIN00001",
+      "VIN": "SYNTHETICVIN00001",
+      "vehicleIdentificationNumber": "SYNTHETICVIN00001",
+      "equipmentType": "Truck Tractor",
+      "type": "Truck Tractor",
+      "make": "Example Tractor",
+      "manufacturer": "Example Tractor",
+      "model": "Model A",
+      "year": "2023",
+      "modelYear": "2023",
+      "licensePlateState": "TX",
+      "state": "TX",
+      "gvwr": "80000"
+    },
+    {
+      "vin": "SYNTHETICVIN00002",
+      "VIN": "SYNTHETICVIN00002",
+      "vehicleIdentificationNumber": "SYNTHETICVIN00002",
+      "equipmentType": "Truck Tractor",
+      "type": "Truck Tractor",
+      "make": "Sample Tractor",
+      "manufacturer": "Sample Tractor",
+      "model": "Model B",
+      "year": "2022",
+      "modelYear": "2022",
+      "licensePlateState": "TX",
+      "state": "TX",
+      "gvwr": "80000"
+    },
+    {
+      "vin": "SYNTHETICVIN00003",
+      "VIN": "SYNTHETICVIN00003",
+      "vehicleIdentificationNumber": "SYNTHETICVIN00003",
+      "equipmentType": "Trailer",
+      "type": "Trailer",
+      "make": "Example Trailer",
+      "manufacturer": "Example Trailer",
+      "model": "Model C",
+      "year": "2021",
+      "modelYear": "2021",
+      "licensePlateState": "TX",
+      "state": "TX",
+      "gvwr": "68000"
+    }
+  ]
+}

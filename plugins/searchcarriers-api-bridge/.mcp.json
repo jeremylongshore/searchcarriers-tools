@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "searchcarriers-api-bridge": {
+      "command": "python3",
+      "args": ["plugins/searchcarriers-api-bridge/scripts/api_bridge_mcp.py"],
+      "env": {
+        "SEARCHCARRIERS_API_KEY": "${SEARCHCARRIERS_API_KEY}"
+      }
+    }
+  }
+}

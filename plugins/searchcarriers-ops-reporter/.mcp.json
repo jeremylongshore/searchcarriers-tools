@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "searchcarriers-ops-reporter": {
+      "command": "python3",
+      "args": ["plugins/searchcarriers-ops-reporter/scripts/ops_reporter_mcp.py"],
+      "env": {
+        "SEARCHCARRIERS_API_KEY": "${SEARCHCARRIERS_API_KEY}"
+      }
+    }
+  }
+}

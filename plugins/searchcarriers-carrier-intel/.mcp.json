@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "searchcarriers-carrier-intel": {
+      "command": "python3",
+      "args": ["plugins/searchcarriers-carrier-intel/scripts/carrier_intel_mcp.py"],
+      "env": {
+        "SEARCHCARRIERS_API_KEY": "${SEARCHCARRIERS_API_KEY}"
+      }
+    }
+  }
+}

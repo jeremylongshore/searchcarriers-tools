@@ -1,0 +1,33 @@
+{
+  "name": "searchcarriers-watchdog",
+  "description": "Company watch management, alert-payload formatting, and point-in-time compliance checks.",
+  "version": "0.2.0",
+  "type": "mcp",
+  "pipeline_stage": "monitoring",
+  "min_tier": "proplus",
+  "tools": [
+    {
+      "name": "manage_watchlist",
+      "description": "Add, remove, or list carriers on the Carrier Watch monitoring list.",
+      "min_tier": "proplus"
+    },
+    {
+      "name": "get_alerts",
+      "description": "Compatibility response for clients expecting an alert feed; no published upstream route exists.",
+      "min_tier": "proplus"
+    },
+    {
+      "name": "route_alert",
+      "description": "Format supplied alerts for Slack, Telegram, email, or webhook delivery.",
+      "min_tier": "proplus"
+    },
+    {
+      "name": "monitor_compliance",
+      "description": "Evaluate the current compliance posture of a carrier.",
+      "min_tier": "proplus"
+    }
+  ],
+  "author": "Jeremy Longshore <jeremy@intentsolutions.io>",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/jeremylongshore/searchcarriers-tools"
+}

@@ -1,0 +1,47 @@
+name: Bug Report
+description: Report a bug in a SearchCarriers plugin or skill
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which plugin or skill is affected?
+      options:
+        - searchcarriers-carrier-intel
+        - searchcarriers-risk-engine
+        - searchcarriers-ops-reporter
+        - searchcarriers-watchdog
+        - searchcarriers-api-bridge
+        - Standalone skill
+        - Validation / CI
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the bug clearly.
+      placeholder: "When I run /sc-lookup with DOT 12345, I get..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+    validations:
+      required: true
+  - type: input
+    id: tier
+    attributes:
+      label: Account tier
+      description: Your SearchCarriers subscription tier
+      placeholder: "Pro"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error output
+      description: Paste any error messages or logs
+      render: shell

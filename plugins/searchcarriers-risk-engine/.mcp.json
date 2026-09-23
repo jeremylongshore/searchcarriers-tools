@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "searchcarriers-risk-engine": {
+      "command": "python3",
+      "args": ["plugins/searchcarriers-risk-engine/scripts/risk_engine_mcp.py"],
+      "env": {
+        "SEARCHCARRIERS_API_KEY": "${SEARCHCARRIERS_API_KEY}"
+      }
+    }
+  }
+}

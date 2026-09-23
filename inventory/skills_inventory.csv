@@ -1,0 +1,27 @@
+name,category,type,status,min_tier,plugin_embedded,has_scripts,has_references,has_templates,description
+searchcarriers-carrier-lookup,search-discovery,standalone,working,free,No,No,No,No,Search carriers by DOT MC or name from 4M+ companies
+searchcarriers-vin-decoder,search-discovery,standalone,working,pro,No,No,No,No,Look up equipment details and related companies by VIN
+searchcarriers-entity-mapper,search-discovery,standalone,working,pro,No,No,No,No,Map carrier associations and ownership relationships
+searchcarriers-safety-scorer,safety-compliance,standalone,working,free,No,No,No,No,Interpret SMS BASICs and CSA safety scores in plain language
+searchcarriers-inspection-analyzer,safety-compliance,standalone,working,pro,No,No,No,No,Analyze inspection history patterns and violation trends
+searchcarriers-compliance-monitor,safety-compliance,standalone,working,pro,No,No,No,No,Track MCS-150 filing and compliance status changes
+searchcarriers-insurance-validator,vetting-risk,standalone,working,pro,No,No,No,No,Verify insurance coverage status and lapse history
+searchcarriers-authority-checker,vetting-risk,standalone,working,free,No,No,No,No,Check operating authority status and revocation history
+searchcarriers-vetting-rules,vetting-risk,standalone,working,proplus,No,No,No,No,Apply custom carrier qualification rules for pass/fail decisions
+searchcarriers-fraud-detector,vetting-risk,standalone,working,pro,No,No,No,No,Detect chameleon carriers and fraud indicator patterns
+searchcarriers-bulk-processor,operations,standalone,working,smb,No,No,No,No,Batch process carrier lookups from CSV input files
+searchcarriers-data-exporter,operations,standalone,working,pro,No,No,No,No,Export carrier data in formatted CSV JSON or report files
+searchcarriers-contact-verifier,operations,standalone,working,pro,No,No,No,No,Verify carrier contact information and flag stale records
+searchcarriers-tms-connector,operations,standalone,working,enterprise,No,No,No,No,Push and pull carrier data to TMS platforms via API
+searchcarriers-carrier-intel,plugin-embedded,embedded,working,free,Yes,No,No,No,Carrier lookup profile and fleet analysis interpretation
+searchcarriers-risk-engine,plugin-embedded,embedded,working,pro,Yes,No,No,No,Risk scoring vetting and compliance assessment
+searchcarriers-ops-reporter,plugin-embedded,embedded,working,pro,Yes,No,No,No,Report generation and pipeline output formatting
+searchcarriers-watchdog,plugin-embedded,embedded,working,proplus,Yes,No,No,No,Carrier monitoring alerts and compliance drift tracking
+searchcarriers-api-bridge,plugin-embedded,embedded,working,smb,Yes,No,No,No,API management bulk operations and TMS integration
+searchcarriers-daily-vetting-digest,workflow,workflow,working,pro,No,No,No,No,Auto-vet watched carriers and generate daily digest
+searchcarriers-slack-carrier-watch,workflow,workflow,working,proplus,No,No,No,No,Route Carrier Watch alerts to Slack with formatted cards
+searchcarriers-insurance-lapse-alert,workflow,workflow,working,proplus,No,No,No,No,Detect insurance lapses and send instant alerts
+searchcarriers-compliance-dashboard,workflow,workflow,working,proplus,No,No,No,No,Weekly compliance report with drift tracking
+searchcarriers-bulk-vetting-pipeline,workflow,workflow,working,smb,No,No,No,No,Bulk carrier vetting with consolidated pass/fail report
+searchcarriers-tms-auto-sync,workflow,workflow,working,enterprise,No,No,No,No,Auto-sync carrier changes to TMS platforms
+searchcarriers-fleet-risk-dashboard,workflow,workflow,working,enterprise,No,No,No,No,Weekly fleet risk analysis with executive summary

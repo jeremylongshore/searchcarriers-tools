@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Carrier Vetting Report — {{ carrier.legal_name }} (DOT {{ carrier.dot_number }})</title>
+<style>
+  @page {
+    size: letter;
+    margin: 0.75in 1in;
+    @bottom-center {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 9px;
+      color: #888;
+    }
+  }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #1a1a1a;
+  }
+  .header {
+    border-bottom: 3px solid #1a1a1a;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+  }
+  .header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .header-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #555;
+  }
+  .badge {
+    display: inline-block;
+    padding: 6px 18px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border-radius: 4px;
+    margin: 12px 0 16px;
+  }
+  .badge-approved { background: #d4edda; color: #155724; border: 2px solid #28a745; }
+  .badge-conditional { background: #fff3cd; color: #856404; border: 2px solid #ffc107; }
+  .badge-declined { background: #f8d7da; color: #721c24; border: 2px solid #dc3545; }
+  h2 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a1a1a;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 4px;
+    margin: 20px 0 10px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+    font-size: 10px;
+  }
+  th {
+    background: #f0f0f0;
+    text-align: left;
+    padding: 5px 8px;
+    font-weight: 600;
+    border: 1px solid #ddd;
+  }
+  td {
+    padding: 5px 8px;
+    border: 1px solid #ddd;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #fafafa; }
+  .field-label { font-weight: 600; width: 35%; background: #f8f8f8; }
+  .risk-factors { margin: 8px 0; padding-left: 20px; }
+  .risk-factors li { margin-bottom: 3px; }
+  .disclaimer {
+    margin-top: 24px;
+    padding: 10px;
+    background: #f8f8f8;
+    border: 1px solid #ddd;
+    font-size: 9px;
+    color: #666;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Carrier Vetting Report</h1>
+  <div class="header-meta">
+    <span><strong>{{ carrier.legal_name }}</strong></span>
+    <span>DOT {{ carrier.dot_number }}{% if carrier.mc_number %} | MC {{ carrier.mc_number }}{% endif %}</span>
+    <span>{{ report_date }}</span>
+  </div>
+</div>
+
+{% if verdict == "APPROVED" %}
+<div class="badge badge-approved">APPROVED</div>
+{% elif verdict == "DECLINED" %}
+<div class="badge badge-declined">DECLINED</div>
+{% else %}
+<div class="badge badge-conditional">CONDITIONAL</div>
+{% endif %}
+
+<h2>Company Overview</h2>
+<table>
+  <tr><td class="field-label">Legal Name</td><td>{{ carrier.legal_name }}</td></tr>
+  <tr><td class="field-label">DBA / Trade Name</td><td>{{ carrier.dba_name or "—" }}</td></tr>
+  <tr><td class="field-label">Entity Type</td><td>{{ carrier.entity_type or "—" }}</td></tr>
+  <tr><td class="field-label">Physical Address</td><td>{{ carrier.address or "—" }}</td></tr>
+  <tr><td class="field-label">Phone</td><td>{{ carrier.phone or "—" }}</td></tr>
+  <tr><td class="field-label">Email</td><td>{{ carrier.email or "—" }}</td></tr>
+  <tr><td class="field-label">DOT Number</td><td>{{ carrier.dot_number }}</td></tr>
+  <tr><td class="field-label">MC Number</td><td>{{ carrier.mc_number or "—" }}</td></tr>
+  <tr><td class="field-label">MCS-150 Date</td><td>{{ carrier.mcs150_date or "—" }}</td></tr>
+</table>
+
+<h2>Operating Status &amp; Authority</h2>
+<p style="margin-bottom:8px;"><strong>Operating Status:</strong> {{ carrier.operating_status }}</p>
+{% if authorities %}
+<table>
+  <thead>
+    <tr><th>Authority Type</th><th>Status</th><th>Docket Number</th></tr>
+  </thead>
+  <tbody>
+  {% for auth in authorities %}
+    <tr>
+      <td>{{ auth.type }}</td>
+      <td>{{ auth.status }}</td>
+      <td>{{ auth.docket_number or "—" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p><em>No authority records returned for this carrier.</em></p>
+{% endif %}
+
+<h2>Safety Summary</h2>
+<table>
+  <tr><td class="field-label">FMCSA Safety Rating</td><td>{{ carrier.safety_rating }}</td></tr>
+  <tr><td class="field-label">Power Units</td><td>{{ carrier.power_units if carrier.power_units is not none else "—" }}</td></tr>
+  <tr><td class="field-label">Total Drivers</td><td>{{ carrier.total_drivers if carrier.total_drivers is not none else "—" }}</td></tr>
+  <tr><td class="field-label">Total Crashes</td><td>{{ carrier.crash_total if carrier.crash_total is not none else "—" }}</td></tr>
+  <tr><td class="field-label">Total Inspections</td><td>{{ carrier.inspection_total if carrier.inspection_total is not none else "—" }}</td></tr>
+  <tr><td class="field-label">Vehicle OOS Rate</td><td>{% if carrier.oos_rate_vehicle %}{{ "%.1f"|format(carrier.oos_rate_vehicle|float) }}%{% else %}—{% endif %}</td></tr>
+  <tr><td class="field-label">Driver OOS Rate</td><td>{% if carrier.oos_rate_driver %}{{ "%.1f"|format(carrier.oos_rate_driver|float) }}%{% else %}—{% endif %}</td></tr>
+</table>
+
+<h2>Insurance Coverage</h2>
+{% if insurances %}
+<table>
+  <thead>
+    <tr><th>Type</th><th>Status</th><th>Coverage</th><th>Policy No.</th><th>Insurer</th><th>Effective</th></tr>
+  </thead>
+  <tbody>
+  {% for ins in insurances %}
+    <tr>
+      <td>{{ ins.type }}</td>
+      <td>{{ ins.status }}</td>
+      <td>{% if ins.coverage %}${{ "{:,.0f}".format(ins.coverage) }}{% else %}—{% endif %}</td>
+      <td>{{ ins.policy_number or "—" }}</td>
+      <td>{{ ins.insurer or "—" }}</td>
+      <td>{{ ins.effective_date or "—" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p><em>No insurance records returned for this carrier.</em></p>
+{% endif %}
+
+<h2>Risk Assessment</h2>
+<p><strong>Overall Risk Level: {{ risk_level|upper }}</strong></p>
+{% if risk_notes %}
+<ul class="risk-factors">
+  {% for note in risk_notes %}
+  <li>{{ note }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+<h2>Recommendation</h2>
+<p>{{ recommendation }}</p>
+
+<div class="disclaimer">
+  This report is generated from data provided by the SearchCarriers API and reflects
+  FMCSA-sourced information at the time of retrieval. It is intended as a compliance
+  aid only and does not constitute legal advice. Always verify critical details directly
+  with FMCSA SAFER and the carrier before tendering loads.
+</div>
+
+</body>
+</html>

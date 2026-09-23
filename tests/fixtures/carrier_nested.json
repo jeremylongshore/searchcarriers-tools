@@ -1,0 +1,57 @@
+{
+  "basics": {
+    "dot_number": "1234567",
+    "mc_number": "765432",
+    "legal_name": "EXAMPLE FREIGHT LLC",
+    "dba_name": "Example Freight",
+    "status_code": "A",
+    "business_org_desc": "CORPORATION",
+    "phy_street": "100 EXAMPLE WAY",
+    "phy_city": "SAMPLE CITY",
+    "phy_state": "TX",
+    "phy_zip": "75001",
+    "phone": "5550100000",
+    "email_address": "ops@example.invalid",
+    "power_units": 12,
+    "total_drivers": "18",
+    "safety_rating": "Satisfactory",
+    "mcs150_date": "2025-06-15T00:00:00Z",
+    "cargo_carried": [
+      "genfreight",
+      "grainfeed",
+      "drybulk"
+    ],
+    "company_officer_1": "ALEX EXAMPLE",
+    "company_officer_2": "CASEY EXAMPLE",
+    "operation_classifications": [
+      "AUTHORIZED FOR HIRE"
+    ]
+  },
+  "authorities": [
+    {
+      "docket_number": "MC765432",
+      "dot_number": "1234567",
+      "common_stat": "N",
+      "contract_stat": "A",
+      "broker_stat": "N"
+    }
+  ],
+  "insurances": [
+    {
+      "prefix_docket_number": "MC765432",
+      "ins_type_code": "1",
+      "max_cov_amount": "00750",
+      "policy_no": "SYNTHETIC-001",
+      "effective_date": "2025-06-01 00:00:00",
+      "name_company": "EXAMPLE INSURANCE COMPANY"
+    },
+    {
+      "prefix_docket_number": "MC765432",
+      "ins_type_code": "2",
+      "max_cov_amount": "00000",
+      "policy_no": "SYNTHETIC-002",
+      "effective_date": "2024-01-01 00:00:00",
+      "name_company": "SAMPLE INSURANCE COMPANY"
+    }
+  ]
+}

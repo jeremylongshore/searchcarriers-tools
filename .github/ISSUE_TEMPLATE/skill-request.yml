@@ -1,0 +1,35 @@
+name: Skill Request
+description: Request a new skill or enhancement
+labels: ["enhancement", "skill"]
+body:
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: What problem would this skill solve?
+      placeholder: "As a freight broker, I need to..."
+    validations:
+      required: true
+  - type: input
+    id: trigger
+    attributes:
+      label: Trigger phrase
+      description: How would you invoke this?
+      placeholder: "/sc-compare USDOT1 USDOT2"
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Search & Discovery
+        - Safety & Compliance
+        - Vetting & Risk
+        - Operations
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: expected_output
+    attributes:
+      label: Expected output
+      description: What should the skill produce?

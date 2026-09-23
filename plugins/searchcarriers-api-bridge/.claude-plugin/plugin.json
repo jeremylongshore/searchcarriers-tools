@@ -1,0 +1,33 @@
+{
+  "name": "searchcarriers-api-bridge",
+  "description": "API health monitoring, bulk carrier operations, TMS synchronization, and webhook management.",
+  "version": "0.2.0",
+  "type": "mcp",
+  "pipeline_stage": "integration",
+  "min_tier": "smb",
+  "tools": [
+    {
+      "name": "api_health",
+      "description": "Check SearchCarriers API endpoint status, response times, and rate limits.",
+      "min_tier": "smb"
+    },
+    {
+      "name": "bulk_lookup",
+      "description": "Batch carrier lookups from a list of DOT numbers with structured results.",
+      "min_tier": "smb"
+    },
+    {
+      "name": "tms_sync",
+      "description": "Push or pull carrier data to TMS platforms via formatted payloads.",
+      "min_tier": "enterprise"
+    },
+    {
+      "name": "webhook_manage",
+      "description": "Manage a local registry of downstream webhook delivery configuration.",
+      "min_tier": "smb"
+    }
+  ],
+  "author": "Jeremy Longshore <jeremy@intentsolutions.io>",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/jeremylongshore/searchcarriers-tools"
+}

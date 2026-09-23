@@ -1,0 +1,18 @@
+{
+  "data": [
+    {
+      "policyNumber": "WC-2025-001",
+      "type": "BIPD",
+      "insuranceType": "BIPD",
+      "status": "Active",
+      "insurerName": "Example Indemnity Co",
+      "insuranceCarrier": "Example Indemnity Co",
+      "effectiveDate": "2025-01-01",
+      "cancellationDate": "2027-01-01",
+      "coverage": 1000000,
+      "coverageFrom": 750000,
+      "coverageTo": 1000000,
+      "insuranceAmount": 1000000
+    }
+  ]
+}

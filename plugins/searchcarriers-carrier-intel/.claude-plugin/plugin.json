@@ -1,0 +1,33 @@
+{
+  "name": "searchcarriers-carrier-intel",
+  "description": "Carrier lookup, profile, entity mapping, and fleet summary from SearchCarriers 4M+ company database.",
+  "version": "0.2.0",
+  "type": "mcp",
+  "pipeline_stage": "input",
+  "min_tier": "free",
+  "tools": [
+    {
+      "name": "carrier_lookup",
+      "description": "Search carriers by DOT, MC, name, VIN, SCAC, or location filters.",
+      "min_tier": "free"
+    },
+    {
+      "name": "carrier_profile",
+      "description": "Full carrier profile: search data + authorities + insurance combined.",
+      "min_tier": "free"
+    },
+    {
+      "name": "entity_map",
+      "description": "Find companies related to a carrier via shared VINs.",
+      "min_tier": "pro"
+    },
+    {
+      "name": "fleet_summary",
+      "description": "Equipment roster and vehicle list for a carrier by DOT.",
+      "min_tier": "free"
+    }
+  ],
+  "author": "Jeremy Longshore <jeremy@intentsolutions.io>",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/jeremylongshore/searchcarriers-tools"
+}

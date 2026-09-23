@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "searchcarriers-watchdog": {
+      "command": "python3",
+      "args": ["plugins/searchcarriers-watchdog/scripts/watchdog_mcp.py"],
+      "env": {
+        "SEARCHCARRIERS_API_KEY": "${SEARCHCARRIERS_API_KEY}"
+      }
+    }
+  }
+}

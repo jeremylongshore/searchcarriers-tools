@@ -1,0 +1,20 @@
+{
+  "data": [
+    {
+      "type": "Common",
+      "authorityType": "Common",
+      "status": "Active",
+      "grantedDate": "1985-03-15",
+      "effectiveDate": "1985-03-15",
+      "revokedDate": null
+    },
+    {
+      "type": "Contract",
+      "authorityType": "Contract",
+      "status": "Active",
+      "grantedDate": "1990-07-22",
+      "effectiveDate": "1990-07-22",
+      "revokedDate": null
+    }
+  ]
+}

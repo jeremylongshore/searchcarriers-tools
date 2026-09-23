@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Carrier Comparison Report</title>
+<style>
+  @page {
+    size: letter landscape;
+    margin: 0.75in 0.75in;
+    @bottom-center {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 9px;
+      color: #888;
+    }
+  }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #1a1a1a;
+  }
+  .header {
+    border-bottom: 3px solid #1a1a1a;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+  }
+  .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .header-meta { font-size: 10px; color: #555; }
+  h2 {
+    font-size: 14px;
+    font-weight: 700;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 4px;
+    margin: 20px 0 10px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+    font-size: 10px;
+  }
+  th {
+    background: #f0f0f0;
+    text-align: left;
+    padding: 5px 8px;
+    font-weight: 600;
+    border: 1px solid #ddd;
+  }
+  td {
+    padding: 5px 8px;
+    border: 1px solid #ddd;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #fafafa; }
+  .field-col { font-weight: 600; background: #f8f8f8; white-space: nowrap; }
+  .best { background: #d4edda !important; }
+  .worst { background: #f8d7da !important; }
+  .risk-low { color: #155724; font-weight: 700; }
+  .risk-medium { color: #856404; font-weight: 700; }
+  .risk-elevated { color: #a94442; font-weight: 700; }
+  .risk-high { color: #721c24; font-weight: 700; }
+  .disclaimer {
+    margin-top: 24px;
+    padding: 10px;
+    background: #f8f8f8;
+    border: 1px solid #ddd;
+    font-size: 9px;
+    color: #666;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Carrier Comparison Report</h1>
+  <div class="header-meta">
+    <strong>Carriers compared:</strong> {{ carriers|length }} |
+    <strong>Report Date:</strong> {{ report_date }} |
+    <strong>DOTs:</strong> {{ carriers | map(attribute='dot_number') | join(', ') }}
+  </div>
+</div>
+
+<h2>Side-by-Side Comparison</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Field</th>
+      {% for c in carriers %}
+      <th>{{ c.legal_name }}<br><small>(DOT {{ c.dot_number }})</small></th>
+      {% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in comparison_rows %}
+    <tr>
+      <td class="field-col">{{ row.label }}</td>
+      {% for val in row.values %}
+      <td>{{ val }}</td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Risk Summary</h2>
+<table>
+  <thead>
+    <tr><th>Carrier</th><th>DOT</th><th>Risk Level</th></tr>
+  </thead>
+  <tbody>
+  {% for c, level in risk_pairs %}
+    <tr>
+      <td>{{ c.legal_name }}</td>
+      <td>{{ c.dot_number }}</td>
+      <td class="risk-{{ level }}">{{ level|upper }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<div class="disclaimer">
+  Data sourced from SearchCarriers API (FMCSA-derived). Verify all figures
+  directly before making carrier decisions.
+</div>
+
+</body>
+</html>

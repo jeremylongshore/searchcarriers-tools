@@ -1,0 +1,33 @@
+{
+  "name": "searchcarriers-risk-engine",
+  "description": "Risk scoring, vetting checks, insurance validation, and compliance auditing for motor carriers.",
+  "version": "0.2.0",
+  "type": "mcp",
+  "pipeline_stage": "analysis",
+  "min_tier": "pro",
+  "tools": [
+    {
+      "name": "risk_score",
+      "description": "Calculate a composite risk score for a carrier based on safety, insurance, and authority data.",
+      "min_tier": "pro"
+    },
+    {
+      "name": "vetting_check",
+      "description": "Run carrier through qualification rules and return pass/review/fail verdict.",
+      "min_tier": "proplus"
+    },
+    {
+      "name": "insurance_check",
+      "description": "Validate insurance coverage status, active policies, and gap detection.",
+      "min_tier": "pro"
+    },
+    {
+      "name": "compliance_audit",
+      "description": "Audit MCS-150 filing, authority status, and regulatory compliance posture.",
+      "min_tier": "pro"
+    }
+  ],
+  "author": "Jeremy Longshore <jeremy@intentsolutions.io>",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/jeremylongshore/searchcarriers-tools"
+}

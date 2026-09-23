@@ -1,0 +1,32 @@
+{
+  "data": [
+    {
+      "dotNumber": "1234567",
+      "mcNumber": "765432",
+      "legalName": "EXAMPLE FREIGHT LLC",
+      "dbaName": "Example Freight",
+      "entityType": "CTXRIER",
+      "operatingStatus": "AUTHORIZED",
+      "phyStreet": "100 EXAMPLE WAY",
+      "phyCity": "SAMPLE CITY",
+      "phyState": "TX",
+      "phyZip": "75001",
+      "telephone": "5550100000",
+      "email": "safety@example.invalid",
+      "rating": "Satisfactory",
+      "safetyRating": "Satisfactory",
+      "totalPowerUnits": 120,
+      "totalDrivers": 180,
+      "crashTotal": 2,
+      "inspectionTotal": 84,
+      "oosRate": 18.5,
+      "oosRateVehicle": 18.5,
+      "oosRateDriver": 4.2,
+      "mcs150Date": "2025-06-15",
+      "mcs150FormDate": "2025-06-15"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "per_page": 10
+}

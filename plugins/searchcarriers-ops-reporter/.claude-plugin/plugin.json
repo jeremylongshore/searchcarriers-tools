@@ -1,0 +1,33 @@
+{
+  "name": "searchcarriers-ops-reporter",
+  "description": "Vetting reports, fleet analysis, carrier comparisons, and data export for motor carrier operations.",
+  "version": "0.2.0",
+  "type": "mcp",
+  "pipeline_stage": "output",
+  "min_tier": "pro",
+  "tools": [
+    {
+      "name": "generate_report",
+      "description": "Generate a formatted vetting report from carrier intel and risk data.",
+      "min_tier": "pro"
+    },
+    {
+      "name": "generate_fleet",
+      "description": "Generate a fleet analysis report with equipment roster and risk summary.",
+      "min_tier": "pro"
+    },
+    {
+      "name": "generate_compare",
+      "description": "Compare multiple carriers side-by-side on safety, insurance, and compliance.",
+      "min_tier": "pro"
+    },
+    {
+      "name": "export_data",
+      "description": "Export carrier data and reports in structured formats (JSON, CSV, Markdown).",
+      "min_tier": "pro"
+    }
+  ],
+  "author": "Jeremy Longshore <jeremy@intentsolutions.io>",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/jeremylongshore/searchcarriers-tools"
+}

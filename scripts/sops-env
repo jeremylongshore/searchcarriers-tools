@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# sops-env — wrapper around SOPS for this repo's .env.sops file.
+# Decrypts to JSON in tmpfs, passes values directly to a child process, and
+# wipes tmpfs. Plaintext never touches the SSD and is never evaluated as shell.
+#
+# Usage:
+#   scripts/sops-env <command>           # run command with secrets in env
+#   scripts/sops-env decrypt             # print decrypted env to stdout
+#   scripts/sops-env edit                # edit encrypted file in place
+#
+# Requires: ~/bin/sops; ~/.config/sops/age/keys.txt or SOPS_AGE_KEY env var.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ENV_FILE="${SOPS_ENV_FILE:-$REPO_ROOT/.env.sops}"
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "sops-env: no encrypted env file at $ENV_FILE" >&2
+  exit 2
+fi
+
+if [ -x "$HOME/bin/sops" ]; then
+  SOPS_BIN="$HOME/bin/sops"
+elif command -v sops >/dev/null 2>&1; then
+  SOPS_BIN="sops"
+else
+  echo "sops-env: sops binary not found (tried ~/bin/sops and PATH)" >&2
+  exit 3
+fi
+
+decrypt_to_stdout() {
+  exec "$SOPS_BIN" -d --input-type dotenv --output-type dotenv "$ENV_FILE"
+}
+
+edit_in_place() {
+  exec "$SOPS_BIN" --input-type dotenv --output-type dotenv "$ENV_FILE"
+}
+
+exec_with_env() {
+  if [ -d /dev/shm ] && [ -w /dev/shm ]; then
+    TMPFILE=$(mktemp -p /dev/shm sops-env-XXXXXX)
+  else
+    TMPFILE=$(mktemp sops-env-XXXXXX)
+  fi
+  chmod 600 "$TMPFILE"
+  trap 'shred -u "$TMPFILE" 2>/dev/null || rm -f "$TMPFILE"' EXIT
+
+  "$SOPS_BIN" -d --input-type dotenv --output-type json "$ENV_FILE" > "$TMPFILE"
+
+  if [ "$#" -eq 0 ]; then
+    set -- env
+  fi
+
+  # Pass argv separately from the decrypted data. Python's execvpe preserves
+  # characters such as |, $, backticks, spaces, and newlines as literal values.
+  python3 - "$TMPFILE" "$@" <<'PY'
+import json
+import os
+import sys
+
+secret_file, *command = sys.argv[1:]
+with open(secret_file, encoding="utf-8") as handle:
+    secrets = json.load(handle)
+if not isinstance(secrets, dict) or not all(
+    isinstance(key, str) and isinstance(value, str)
+    for key, value in secrets.items()
+):
+    raise SystemExit("sops-env: decrypted document must be a string-to-string object")
+
+environment = os.environ.copy()
+environment.update(secrets)
+os.execvpe(command[0], command, environment)
+PY
+}
+
+case "${1:-help}" in
+  decrypt|cat|show) decrypt_to_stdout ;;
+  edit)             edit_in_place ;;
+  help|-h|--help)   sed -n 's/^# \?//p' "$0" | head -20 ;;
+  --)               shift; exec_with_env "$@" ;;
+  *)                exec_with_env "$@" ;;
+esac

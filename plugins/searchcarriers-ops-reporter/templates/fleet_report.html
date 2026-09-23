@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Fleet Analysis — {{ carrier.legal_name }} (DOT {{ carrier.dot_number }})</title>
+<style>
+  @page {
+    size: letter;
+    margin: 0.75in 1in;
+    @bottom-center {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 9px;
+      color: #888;
+    }
+  }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #1a1a1a;
+  }
+  .header {
+    border-bottom: 3px solid #1a1a1a;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+  }
+  .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .header-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #555;
+  }
+  h2 {
+    font-size: 14px;
+    font-weight: 700;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 4px;
+    margin: 20px 0 10px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+    font-size: 10px;
+  }
+  th {
+    background: #f0f0f0;
+    text-align: left;
+    padding: 5px 8px;
+    font-weight: 600;
+    border: 1px solid #ddd;
+  }
+  td {
+    padding: 5px 8px;
+    border: 1px solid #ddd;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #fafafa; }
+  .field-label { font-weight: 600; width: 35%; background: #f8f8f8; }
+  .note { font-style: italic; color: #555; margin: 8px 0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Fleet Analysis Report</h1>
+  <div class="header-meta">
+    <span><strong>{{ carrier.legal_name }}</strong></span>
+    <span>DOT {{ carrier.dot_number }}</span>
+    <span>{{ report_date }}</span>
+  </div>
+</div>
+
+<h2>Fleet Overview</h2>
+<table>
+  <tr><td class="field-label">Power Units (FMCSA)</td><td>{{ carrier.power_units if carrier.power_units is not none else "—" }}</td></tr>
+  <tr><td class="field-label">Total Drivers (FMCSA)</td><td>{{ carrier.total_drivers if carrier.total_drivers is not none else "—" }}</td></tr>
+  <tr><td class="field-label">Equipment Records (API)</td><td>{{ equipment_count }}</td></tr>
+  <tr><td class="field-label">Equipment Types</td><td>{{ type_count }}</td></tr>
+</table>
+
+<h2>Fleet Composition</h2>
+{% if ratio_note %}
+<p class="note">{{ ratio_note }}</p>
+{% endif %}
+
+{% if type_counts %}
+<table>
+  <thead>
+    <tr><th>Equipment Type</th><th>Count</th><th>Share</th></tr>
+  </thead>
+  <tbody>
+  {% for eq_type, count in type_counts %}
+    <tr>
+      <td>{{ eq_type }}</td>
+      <td>{{ count }}</td>
+      <td>{{ "%.1f"|format(count / equipment_count * 100) }}%</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p><em>No equipment records returned for this carrier.</em></p>
+{% endif %}
+
+{% if roster %}
+<h2>Equipment Roster</h2>
+<table>
+  <thead>
+    <tr><th>Year</th><th>Make</th><th>Model</th><th>Type</th><th>VIN</th></tr>
+  </thead>
+  <tbody>
+  {% for item in roster %}
+    <tr>
+      <td>{{ item.year or "—" }}</td>
+      <td>{{ item.make or "—" }}</td>
+      <td>{{ item.model or "—" }}</td>
+      <td>{{ item.type or "—" }}</td>
+      <td style="font-family:monospace;font-size:9px;">{{ item.vin or "—" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if equipment_count > roster|length %}
+<p class="note">Showing {{ roster|length }} of {{ equipment_count }} equipment records.</p>
+{% endif %}
+{% endif %}
+
+</body>
+</html>
