@@ -1,243 +1,132 @@
 ---
 name: searchcarriers-bulk-vetting-pipeline
-description: Upload a list of carriers, run full vetting on each, and produce a consolidated report with pass/fail results. Use when vetting in bulk.
-allowed-tools: Read,Grep,Bash(python:*)
-metadata:
-  tier: smb
-version: 0.2.0
+description: "Analyzes carrier evidence for bulk carrier qualification pipeline. Use when a user asks, \"Vet this CSV using our automotive-customer\u2026\". Trigger with \"Vet this CSV using our automotive-\u2026\"."
+allowed-tools: Read, Bash(curl:*), Bash(python:*)
+argument-hint: '[DOT, docket, VIN, carrier list, or workflow input]'
+version: 0.3.0
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: Apache-2.0
-compatibility: Claude Code or another MCP-capable client; Python 3.10+; network access to searchcarriers.com; an appropriate SearchCarriers API subscription.
+compatibility: Designed for Claude Code and MCP-capable clients; requires Python 3.10+, network access to searchcarriers.com, and an eligible SearchCarriers plan.
+metadata:
+  tier: smb
 tags:
 - searchcarriers
 - motor-carrier
-- workflow
+- evidence
+- smb
 ---
 
-# Bulk Vetting Pipeline -- Workflow Skill
+# Bulk Carrier Qualification Pipeline
+
+Bulk Carrier Qualification Pipeline helps an operator run named policy qualification across a carrier list with restartable evidence. It solves this operational failure: A single bad row or rate limit should not invalidate hundreds of carrier decisions, and default criteria should not be invented.
 
 ## Overview
 
-> **API contract:** Use the repository `API-DISCOVERY.md` for the current v3/v2/v1 route map and verified parameter names. Do not infer newer-version routes.
+The workflow is **identify → fetch → reconcile → decide → act**. API data is
+licensed research evidence, not an endorsement, official safety rating, or guarantee.
+Keep the human or named company policy as the decision owner.
 
-This workflow orchestrates a cross-plugin pipeline that takes a list of carrier DOT numbers (up to 100), runs each through the full vetting pipeline, and produces a consolidated pass/fail report with a CSV export. It coordinates three plugins in sequence: API Bridge (bulk ingestion), Risk Engine (scoring and vetting), and Ops Reporter (report generation and export).
-
-The pipeline follows this execution path:
-
-```
-bulk_lookup (API Bridge)
-    |
-    v
-[For each carrier returned]
-    |-- risk_score (Risk Engine)
-    |-- vetting_check (Risk Engine)
-    |
-    v
-generate_report (Ops Reporter) -- for failures only
-    |
-    v
-export_data (Ops Reporter) -- CSV summary of all carriers
-    |
-    v
-Consolidated report with pass/fail per carrier
-```
-
-This workflow eliminates the manual effort of running individual lookups, scoring, and vetting across dozens of carriers. A 100-carrier batch that would take hours manually completes in under 10 minutes.
+The bounded result is: Return COMPLETE, PARTIAL, or FAILED; missing evidence follows the named policy and never silently passes.
 
 ## Prerequisites
 
-- **Minimum tier**: SMB (bulk_lookup requires SMB; vetting_check requires Pro Plus)
-- `SEARCHCARRIERS_API_KEY` environment variable set with a valid Bearer token
-- MCP servers running: `searchcarriers-api-bridge`, `searchcarriers-risk-engine`, `searchcarriers-ops-reporter`
-- API base URL: `https://searchcarriers.com/api/v1`
-- Authentication format: `Authorization: Bearer {id}|{token}` (Laravel Sanctum)
-- Input: A list of DOT numbers (inline, from file, or from a previous result set)
+- Set `SEARCHCARRIERS_API_KEY` to a SearchCarriers bearer token with the required tier.
+- Confirm the subject identifier, intended movement or decision, and named policy when applicable.
+- Read [`API-DISCOVERY.md`](https://github.com/jeremylongshore/searchcarriers-tools/blob/main/API-DISCOVERY.md) with the `Read` tool before changing routes or parameters.
+- Use `Bash(curl:*)` for API requests and `Bash(python:*)` only for local JSON validation or deterministic reshaping.
+
+Authentication is `Authorization: Bearer $SEARCHCARRIERS_API_KEY`; never print,
+commit, or place the token in a URL. Do not commit live API responses.
 
 ## Instructions
 
-### Stage 1: Input Validation and Bulk Lookup
+### Step 1: Define the decision
 
-Accept DOT numbers from one of three sources:
+Write one sentence naming the subject, the operational use, the evidence window,
+and who owns the final decision. If a policy threshold is required, obtain the
+named policy instead of inventing an “industry standard.”
 
-| Source | Format | Example |
-|--------|--------|---------|
-| Inline list | Comma or newline separated | `1234567, 2345678, 3456789` |
-| File | CSV or text file with one DOT per line | `/path/to/dots.csv` |
-| Previous results | DOT numbers extracted from a prior search | Output of `/sc-lookup` |
+### Step 2: Resolve identity
 
-**Validation rules:**
+Prefer USDOT or docket identifiers. Treat name-only matches as ambiguous until
+legal name, location, and identifiers agree. Stop on conflicting identity.
 
-1. Strip whitespace and non-numeric characters from each entry.
-2. Reject entries that are not 1-8 digit numbers.
-3. Deduplicate the list -- report duplicates removed.
-4. Enforce the 100-carrier maximum. If the list exceeds 100, reject with: "Batch limited to 100 carriers. Split into multiple batches."
-5. Report the validated count before proceeding.
+### Step 3: Fetch the smallest evidence set
 
-**Execute bulk lookup:**
+**Routes/tools:** GET /api/v2/company/{dot}/qualification-reports; bulk_lookup; report/export tools
 
-Call `bulk_lookup` from the API Bridge plugin with the validated DOT list. This performs rate-limited lookups (max 3 requests/second) against the SearchCarriers API.
+Validate/deduplicate input, pin the qualification name, checkpoint data collection, preserve per-rule results, and generate output plus error manifest.
 
-Collect results into three categories:
+For a direct API request, use the documented route and selected fields:
 
-| Category | Condition | Action |
-|----------|-----------|--------|
-| Found | API returned carrier data | Proceed to Stage 2 |
-| Not found | API returned 404 for DOT | Log as NOT_FOUND in final report |
-| Error | API returned 5xx or timeout | Log as ERROR in final report |
+```bash
+curl --fail-with-body --get   "https://searchcarriers.com/api/v3/company/$DOT_NUMBER"   --header "Authorization: Bearer $SEARCHCARRIERS_API_KEY"   --header "Accept: application/json"   --data-urlencode "fields=contact,authorities,insurance,safety,operation,risk_factors"
+```
 
-### Stage 2: Risk Scoring
+Use the specialty v1 or qualification v2 route listed above when the job requires
+it; never rewrite every route to the highest version.
 
-For each carrier in the "found" category, call `risk_score` from the Risk Engine plugin.
+### Step 4: Reconcile evidence
 
-**Rate management:** Process carriers sequentially to respect API rate limits. The risk_score tool makes multiple API calls per carrier (base search + authorities + insurances + inspections), so expect approximately 4-6 API calls per carrier.
+Capture: Run ID/input hash, qualification version, per-DOT verdict/evidence/as-of, attempts, errors, and reconciled totals.
 
-**Collect per-carrier results:**
+Keep facts, policy tests, modeled indicators, and analyst judgment in separate
+fields. Preserve zeros; represent absent fields as `unknown` with a reason.
 
-| Field | Source | Purpose |
-|-------|--------|---------|
-| `composite_score` | risk_score `_pipeline.data` | Primary risk metric |
-| `level` | risk_score `_pipeline.data` | LOW / MEDIUM / ELEVATED / HIGH |
-| `factors` | risk_score `_pipeline.data` | Individual factor breakdown |
+### Step 5: Decide and prescribe the next action
 
-Track scoring failures separately. If `risk_score` fails for a carrier (missing data, API error), mark that carrier as SCORE_FAILED and continue with the remaining carriers.
+Return COMPLETE, PARTIAL, or FAILED; missing evidence follows the named policy and never silently passes.
 
-### Stage 3: Vetting Check
-
-For each carrier that received a risk score, call `vetting_check` from the Risk Engine plugin.
-
-**Ruleset selection:**
-
-| Scenario | Ruleset | Rationale |
-|----------|---------|-----------|
-| General freight vetting | `standard` | Industry-consensus thresholds |
-| High-value or hazmat freight | `strict` | Tighter thresholds for elevated liability |
-| User-specified custom rules | `custom` | User provides rule definitions |
-
-Default to `standard` unless the user specifies otherwise.
-
-**Collect per-carrier results:**
-
-| Field | Source | Purpose |
-|-------|--------|---------|
-| `verdict` | vetting_check `_pipeline.data` | PASS / REVIEW / FAIL |
-| `disposition` | vetting_check `_pipeline.data` | Human-readable summary |
-| `fail_items[]` | vetting_check `_pipeline.data` | Rules that caused FAIL |
-| `review_items[]` | vetting_check `_pipeline.data` | Rules flagged for REVIEW |
-
-### Stage 4: Failure Report Generation
-
-For each carrier with a verdict of FAIL, call `generate_report` from the Ops Reporter plugin to produce a detailed vetting report. These individual reports document why the carrier failed and provide evidence for the decision.
-
-**Skip report generation for:**
-
-- Carriers with PASS verdict (no report needed).
-- Carriers with REVIEW verdict (include in summary but no full report unless user requests it).
-- Carriers that were NOT_FOUND, ERROR, or SCORE_FAILED (no data to report on).
-
-### Stage 5: CSV Export
-
-Call `export_data` from the Ops Reporter plugin with format `csv` to produce a flat summary of all carriers in the batch.
-
-**CSV columns:**
-
-| Column | Source | Notes |
-|--------|--------|-------|
-| DOT | Input list | Original DOT number |
-| Legal Name | bulk_lookup result | Carrier legal name |
-| Status | bulk_lookup result | ACTIVE / INACTIVE |
-| State | bulk_lookup result | 2-letter state code |
-| Power Units | bulk_lookup result | Fleet size |
-| Risk Score | risk_score result | 0-100 composite |
-| Risk Level | risk_score result | LOW / MEDIUM / ELEVATED / HIGH |
-| Verdict | vetting_check result | PASS / REVIEW / FAIL |
-| Fail Reasons | vetting_check result | Semicolon-separated list of failing rules |
-| Disposition | vetting_check result | Summary text |
-| Result | Pipeline status | PASS / REVIEW / FAIL / NOT_FOUND / ERROR / SCORE_FAILED |
-
-### Stage 6: Consolidated Report
-
-Assemble the final consolidated report combining all stages into a single output.
-
-**Report structure:**
-
-1. **Header**: Batch ID, date, total carriers submitted, ruleset used.
-2. **Summary metrics**: Total processed, pass count, review count, fail count, not found, errors.
-3. **Pass/fail table**: Every carrier in a single table with DOT, name, risk score, verdict, and top flag.
-4. **Failure detail section**: For each FAIL carrier, include the disposition and failing rules.
-5. **Review detail section**: For each REVIEW carrier, include the review items and how close each is to the threshold.
-6. **Export link**: Reference to the CSV file produced in Stage 5.
-
-**Summary metric calculations:**
-
-| Metric | Calculation |
-|--------|-------------|
-| Pass rate | `PASS count / total found * 100` |
-| Fail rate | `FAIL count / total found * 100` |
-| Average risk score | Mean of all composite scores |
-| Highest risk | Carrier with the highest composite score |
-| Most common fail reason | Mode of all fail_items across failed carriers |
-
-## Examples
-
-### Example 1: Standard Bulk Vetting
-
-User provides: "Vet these 25 DOTs: 1234567, 2345678, ..." (inline list)
-
-1. Validate and deduplicate: 25 unique DOTs confirmed.
-2. `bulk_lookup` retrieves 23 found, 1 not found, 1 error.
-3. `risk_score` for 23 carriers: all succeed, scores range 12-67.
-4. `vetting_check` with standard rules: 18 PASS, 3 REVIEW, 2 FAIL.
-5. `generate_report` for the 2 FAIL carriers.
-6. `export_data` produces CSV with all 25 rows.
-7. Consolidated report: "25 submitted. 23 found. 18 pass (78%), 3 review (13%), 2 fail (9%). 1 not found, 1 API error. Average risk: 31/100. CSV exported."
-
-### Example 2: Strict Rules for Hazmat Carriers
-
-User provides: "Vet these DOTs with strict rules" plus a file path.
-
-1. Parse DOTs from file: 50 unique DOTs.
-2. `bulk_lookup` retrieves 48 found.
-3. `risk_score` for 48 carriers.
-4. `vetting_check` with `strict` ruleset: 30 PASS, 10 REVIEW, 8 FAIL.
-5. `generate_report` for the 8 FAIL carriers.
-6. `export_data` produces CSV.
-7. Consolidated report notes strict ruleset applied. Higher fail rate expected with strict thresholds.
-
-### Example 3: Re-vetting After Failures
-
-User asks: "Re-vet the 3 carriers that failed last batch."
-
-1. Extract the 3 FAIL DOTs from the previous batch results.
-2. Run the full pipeline on just those 3 carriers.
-3. If any now PASS (data corrected, insurance updated), report the change.
-4. If still failing, confirm the same or different rules are triggering.
+**Next action:** Resume failed rows, assign Review/Fail cases, and publish the evidence manifest with the output.
 
 ## Output
 
-Return the requested result with the API route version, relevant carrier identifiers, evidence, missing-data limits, and the next operational action. Never include an API token or an unredacted bulk API response.
+Return this compact decision record:
+
+```yaml
+subject: "DOT or input identifier"
+purpose: "the exact operational question"
+status: "bounded status from this skill"
+evidence:
+  - fact: "observed value"
+    source: "API route or MCP tool"
+    as_of: "timestamp or source date"
+missing_evidence: []
+policy_or_method: "named policy, evidence-only, or disclosed model"
+next_action: "owner and concrete action"
+limitations: "coverage, freshness, and inference limits"
+```
+
+Every material claim needs a source and as-of value. Totals must reconcile to
+detail rows. The output must say whether any result is partial.
+
+## Examples
+
+**Should trigger:** “Vet this CSV using our automotive-customer qualification.”
+
+Produce the bounded record, show the decisive evidence and unknowns, and give one
+operational next action.
+
+**Should not trigger:** “Decode one VIN.”
+
+Route that request to the narrower SearchCarriers skill whose job matches it.
 
 ## Error Handling
 
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| Batch exceeds 100 carriers | Input list too large | Split into batches of 100 or fewer |
-| bulk_lookup partial failure | Some DOTs return errors while others succeed | Continue pipeline with successful lookups; report failures in final summary |
-| risk_score timeout | API latency or carrier data complexity | Retry once after 5 seconds; if persistent, mark carrier as SCORE_FAILED |
-| vetting_check 403 | User tier below Pro Plus | State: "Vetting check requires Pro Plus. Bulk lookup and risk scoring completed -- upgrade to add vetting." |
-| generate_report failure | Ops Reporter MCP not available | Skip individual reports; still produce CSV summary and consolidated table |
-| export_data format error | Invalid format parameter | Default to CSV; report the format constraint |
-| All carriers NOT_FOUND | Invalid DOT list or stale data | Verify DOT numbers are valid 1-8 digit FMCSA identifiers |
-| API rate limit (429) | Batch processing exceeded rate limit | Pause for `Retry-After` duration; reduce processing concurrency |
-| MCP server unavailable | One of the three required MCP servers is not running | Report which server is down and which pipeline stages are affected |
+| Condition | Required response |
+|---|---|
+| Identity conflict or multiple matches | Stop and return `REVIEW`; request a USDOT or docket. |
+| Missing field or empty data | Invalid IDs and permanent errors enter review; transient errors retry within a bound. |
+| `401` | Stop; report invalid/missing credentials without exposing them. |
+| `403` | Stop; identify the route and required plan/access. |
+| `404` | Recheck the identifier and route; do not treat it as adverse carrier evidence. |
+| `422` | Remove unsupported parameters and compare with the API contract. |
+| `429` | Honor `Retry-After`; use bounded retry and preserve progress. |
+| `5xx` or timeout | Retry with bounded backoff, then return partial/unavailable. |
 
 ## Resources
 
-- API Bridge plugin tools: `bulk_lookup`, `api_health` -- `{baseDir}/plugins/searchcarriers-api-bridge/SCHEMA.md`
-- Risk Engine plugin tools: `risk_score`, `vetting_check` -- `{baseDir}/plugins/searchcarriers-risk-engine/SCHEMA.md`
-- Ops Reporter plugin tools: `generate_report`, `export_data` -- `{baseDir}/plugins/searchcarriers-ops-reporter/SCHEMA.md`
-- Rate limit guidance: max 3 req/sec, 5-min cache TTL
-- Pipeline architecture: API Bridge (INTEGRATION) -> Risk Engine (ANALYSIS) -> Ops Reporter (OUTPUT)
-- Vetting rulesets: standard, strict, custom -- see Risk Engine SKILL.md for rule definitions
-- CSV export spec: RFC 4180
-- SearchCarriers API base: `https://searchcarriers.com/api/v1`
-- FMCSA insurance minimums: 49 CFR Part 387
+- [Decision playbook](references/playbook.md)
+- [Repository API contract](https://github.com/jeremylongshore/searchcarriers-tools/blob/main/API-DISCOVERY.md)
+- [SearchCarriers public API](https://searchcarriers.com/docs/api)
+- [SearchCarriers terms](https://searchcarriers.com/terms-of-service)

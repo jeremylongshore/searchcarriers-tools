@@ -91,31 +91,20 @@ Claude receives risk assessment, presents to user
 ### Vetting Check Pipeline
 
 ```
-User: "Vet this carrier with $100K minimum cargo insurance"
+User: "Run our named refrigerated-customer qualification"
   |
   v
 Claude orchestrates:
   |
-  +--> carrier_profile(dot=69494)     [Carrier Intel]
-  +--> vetting_check(                  [Risk Engine]
-  |      dot_number="69494",
-  |      carrier_data={...},
-  |      overrides={ "min_cargo": 100000 }
+  +--> qualification_reports(          [Risk Engine]
+  |      dot_number="69494"
   |    )
   |
   |    Internal flow:
-  |    +--> Load default rules (VET-01 through VET-08)
-  |    +--> Apply overrides (min_cargo: $100K -> $100K, no change)
-  |    +--> Evaluate each rule against carrier data:
-  |    |    VET-01: Active authority?        -> PASS (Active since 1981)
-  |    |    VET-02: BIPD >= $750K?           -> PASS ($5M on file)
-  |    |    VET-03: Cargo >= $100K?          -> PASS ($250K on file)
-  |    |    VET-04: Safety rating?           -> PASS (Satisfactory)
-  |    |    VET-05: Vehicle OOS rate <= 40%? -> PASS (12.3%)
-  |    |    VET-06: Driver OOS rate <= 15%?  -> PASS (4.1%)
-  |    |    VET-07: Authority age >= 90d?    -> PASS (16,000+ days)
-  |    |    VET-08: MCS-150 < 24 months?     -> PASS (filed 2025-09)
-  |    +--> Determine verdict: PASS (all rules passed)
+  |    +--> Fetch API v2 personal/team qualification results
+  |    +--> Select the exact qualification name
+  |    +--> Preserve Pass/Review/Fail evidence and missing checks
+  |    +--> Return the upstream result without local default thresholds
   |
   v
 Claude presents: "PASS - Werner Enterprises qualifies on all 8 criteria"

@@ -153,16 +153,18 @@ The compliance manager sees that Cold Star is a newer carrier without a safety r
 
 ### Step 4: Vetting Check with Custom Rules (Pro+)
 
-Sarah's company upgrades to Pro+ ($99/month) and configures their standard qualification criteria. Their internal policy requires $250K minimum cargo insurance (higher than the industry default of $100K) because they primarily haul high-value freight.
+Sarah's company configures a named high-value-freight qualification. Its own
+approved policy requires $250K minimum cargo insurance.
 
 ```
 Vet DOT 3456789 with minimum cargo insurance of $250,000
 ```
 
 **What happens behind the scenes:**
-1. Claude calls `vetting_check` with carrier data and overrides: `{ "min_cargo": 250000 }`
-2. Risk Engine loads default rules, applies the override, evaluates each rule
-3. Returns verdict with per-rule results
+1. Claude calls `qualification_reports` for the named policy when it exists in
+   SearchCarriers, or calls `vetting_check` with the complete approved rule set.
+2. Risk Engine preserves each observed value, threshold, and missing field.
+3. It returns the upstream or caller-policy verdict with per-rule evidence.
 
 **Expected output (Pro+ tier):**
 
@@ -333,11 +335,16 @@ Options:
 **Q: How is the composite risk score calculated?**
 A: The score is a weighted average across four dimensions: Safety (35%), Insurance (25%), Authority (20%), and Operational (20%). Each dimension scores 0-100 based on specific factors (safety rating, OOS rates, insurance coverage, authority age, etc.). The composite is the sum of each dimension score multiplied by its weight. Lower scores indicate lower risk.
 
-**Q: What is the difference between `risk_score` and `vetting_check`?**
-A: `risk_score` gives you a numeric assessment (0-100) with a risk tier. It is a general-purpose risk indicator. `vetting_check` evaluates a carrier against specific binary rules (min insurance, max OOS rate, etc.) and returns a PASS/REVIEW/FAIL verdict. Use `risk_score` for quick triage. Use `vetting_check` for formal qualification decisions with auditable rule results.
+**Q: What is the difference between `risk_score`, `qualification_reports`, and `vetting_check`?**
+A: `risk_score` is a disclosed legacy advisory model. `qualification_reports`
+preserves named SearchCarriers personal/team results. `vetting_check` evaluates
+a complete caller-owned policy. Use a named qualification or caller policy for
+formal decisions; never present the advisory score as an official rating.
 
 **Q: Can I customize the scoring weights?**
-A: Not in v0.1. The 35/25/20/20 weights are calibrated defaults. Custom weight configuration is planned for v0.2. In v0.1, you can customize vetting thresholds in `vetting_check` (Pro+ tier) but not the risk score weights.
+A: The legacy advisory model weights are fixed and disclosed. Formal policy
+decisions belong in a named SearchCarriers qualification or the complete rule
+set supplied to `vetting_check`.
 
 **Q: What does a LOW confidence score mean?**
 A: LOW confidence means less than 50% of the expected data fields were available for scoring. This typically happens with new carriers, very small carriers, or carriers with incomplete FMCSA filings. The risk score still computes, but missing data is treated as a risk factor (absence of data is worse than known data). Take LOW confidence scores with extra scrutiny.

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-23
+
+### Added
+
+- Pain-point research tying carrier sourcing, identity, insurance,
+  qualification, bulk operations, and TMS workflows to current authoritative
+  sources.
+- Decision playbooks and behavioral eval specifications for all 26 skills and
+  workflows.
+- API v3 advanced search filters for fleet size, insurance, registration,
+  authority age, equipment, cargo, and lane origin/destination criteria.
+- Risk Engine `qualification_reports` tool for the API v2 named qualification
+  endpoint.
+
+### Changed
+
+- Rebuilt every skill around one bounded operational job, sourced evidence,
+  missing-data behavior, and a concrete next action.
+- `vetting_check` now requires a complete caller-owned policy and no longer
+  applies hidden default thresholds.
+- Labeled the numeric Risk Engine score as a legacy advisory model rather than
+  an official rating or named qualification.
+
 ## [0.2.0] - 2026-09-22
 
 ### Added

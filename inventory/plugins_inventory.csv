@@ -1,6 +1,6 @@
 name,type,stage,status,min_tier,who,what,when,target_goal,production,version,docs_complete
-searchcarriers-carrier-intel,stackable,INPUT,working,free,Jeremy,Carrier lookup and entity mapping,Phase 4,Working MCP with 4 tools,No,0.2.0,Yes
-searchcarriers-risk-engine,stackable,ANALYSIS,working,pro,Jeremy,Risk scoring and vetting logic,Phase 5,Working MCP with 4 tools,No,0.2.0,Yes
-searchcarriers-ops-reporter,stackable,OUTPUT,working,pro,Jeremy,Reports and data export,Phase 6,Working MCP with 4 tools,No,0.2.0,Yes
-searchcarriers-watchdog,standalone,MONITORING,working,proplus,Jeremy,Carrier watch and alert routing,Phase 7,Working MCP with 4 tools,No,0.2.0,Yes
-searchcarriers-api-bridge,standalone,INTEGRATION,working,smb,Jeremy,Bulk ops and TMS sync,Phase 8,Working MCP with 4 tools,No,0.2.0,Yes
+searchcarriers-carrier-intel,stackable,INPUT,working,free,Jeremy,Carrier lookup and entity mapping,Phase 4,Working MCP with 4 tools,No,0.3.0,Yes
+searchcarriers-risk-engine,stackable,ANALYSIS,working,pro,Jeremy,Risk scoring and vetting logic,Phase 5,Working MCP with 5 tools,No,0.3.0,Yes
+searchcarriers-ops-reporter,stackable,OUTPUT,working,pro,Jeremy,Reports and data export,Phase 6,Working MCP with 4 tools,No,0.3.0,Yes
+searchcarriers-watchdog,standalone,MONITORING,working,proplus,Jeremy,Carrier watch and alert routing,Phase 7,Working MCP with 4 tools,No,0.3.0,Yes
+searchcarriers-api-bridge,standalone,INTEGRATION,working,smb,Jeremy,Bulk ops and TMS sync,Phase 8,Working MCP with 4 tools,No,0.3.0,Yes

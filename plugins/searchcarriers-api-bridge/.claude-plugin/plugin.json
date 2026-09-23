@@ -1,7 +1,7 @@
 {
   "name": "searchcarriers-api-bridge",
   "description": "API health monitoring, bulk carrier operations, TMS synchronization, and webhook management.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "mcp",
   "pipeline_stage": "integration",
   "min_tier": "smb",

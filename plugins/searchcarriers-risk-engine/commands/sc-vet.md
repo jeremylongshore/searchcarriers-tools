@@ -1,152 +1,73 @@
-# /sc-vet -- Carrier Vetting Check
+# /sc-vet — Named Carrier Qualification
 
-When the user runs `/sc-vet [DOT]` or `/sc-vet [DOT] --rules [ruleset]`, run the carrier
-through qualification rules and display a detailed pass/review/fail verdict.
+When the user runs `/sc-vet [DOT]`, fetch SearchCarriers personal and team
+qualification reports for that USDOT number. When the user supplies a complete
+local policy, evaluate that policy explicitly. Never select hidden “standard”
+thresholds.
 
-## Parse the Input
+## Parse the input
 
-The first argument must be a DOT number (7-digit numeric). If the user passes an MC number
-or name instead, tell them to run `/sc-lookup` first to resolve the DOT number.
+The first argument is a USDOT number. Resolve names or docket numbers through
+`carrier_lookup` before qualification.
 
 Optional flags:
 
-| Flag | Values | Default | Description |
-|------|--------|---------|-------------|
-| `--rules` | `standard`, `strict`, `custom` | `standard` | Qualification ruleset to apply |
-| `--format` | `full`, `summary` | `full` | Output detail level |
+| Flag | Value | Purpose |
+|---|---|---|
+| `--qualification` | exact name | Select one upstream personal/team qualification. |
+| `--policy` | JSON file or supplied object | Apply a complete caller-owned policy through `vetting_check`. |
+| `--format` | `full` or `summary` | Control display detail; never remove failed or missing evidence. |
 
-If `--rules custom` is specified, the user must also provide a rules definition (see
-Custom Rules section below).
+If neither `--qualification` nor `--policy` is supplied, call
+`qualification_reports` and list the available named results. Do not guess
+which qualification governs the load.
 
-## Execute the Vetting
+## Execute
 
-Call the `vetting_check` MCP tool with the DOT number and the selected ruleset.
+1. Call `qualification_reports` with `dot_number`.
+2. Match `--qualification` by exact name. If it is ambiguous or absent, return
+   Review and show the available names.
+3. If `--policy` is supplied, validate all six required keys before calling
+   `vetting_check`: `operating_status`, `min_insurance_coverage`,
+   `max_oos_rate`, `max_crash_rate_per_pu`, `authority_active`, and
+   `mcs150_current`.
+4. Preserve each observed value, threshold, source, evidence item, missing
+   field, and as-of timestamp.
 
-This returns a verdict (PASS, REVIEW, or FAIL), individual rule results, and an
-overall qualification summary.
+## Display results
 
-## Display Results
+```text
+CARRIER QUALIFICATION — DOT {dot_number}
+Carrier:        {legal_name}
+Qualification:  {exact qualification or caller policy name}
+As of:          {timestamp}
 
-### Verdict Header
+VERDICT: PASS | REVIEW | FAIL
 
-Display the overall verdict prominently:
+Rule | Result | Observed | Threshold | Source | Reason
+-----|--------|----------|-----------|--------|-------
+...  | ...    | ...      | ...       | ...    | ...
 
-```
-CARRIER VETTING REPORT -- DOT {dot_number}
-Carrier:    {legal_name}
-Ruleset:    {ruleset_name}
-Evaluated:  {timestamp}
-
- VERDICT:  [PASS]    Carrier meets all qualification criteria.
- VERDICT:  [REVIEW]  Carrier requires manual review on {n} rule(s).
- VERDICT:  [FAIL]    Carrier fails {n} mandatory rule(s). Do not qualify.
-```
-
-### Rule-by-Rule Results
-
-Show every rule evaluated with its result:
-
-```
-QUALIFICATION RULES
-
-| #  | Rule                      | Result | Threshold        | Actual           | Notes                  |
-|----|---------------------------|--------|------------------|------------------|------------------------|
-| 1  | Active Operating Status   | PASS   | Status = ACTIVE  | ACTIVE           |                        |
-| 2  | Active BIPD Insurance     | PASS   | Coverage >= $750K| $1,000,000       | Above minimum          |
-| 3  | Safety Rating             | PASS   | Not UNSATISFACTORY| SATISFACTORY    |                        |
-| 4  | Authority Status          | PASS   | At least 1 active| Common: ACTIVE   |                        |
-| 5  | Vehicle OOS Rate          | REVIEW | <= 25%           | 23.8%            | Near threshold         |
-| 6  | Driver OOS Rate           | PASS   | <= 10%           | 4.1%             |                        |
-| 7  | MCS-150 Currency          | PASS   | Filed < 2 years  | 2024-12-10       | 14 months ago          |
-| 8  | Operating History         | PASS   | >= 12 months     | 36 months        |                        |
-| 9  | Crash Record              | PASS   | 0 fatal (2yr)    | 0 fatal          |                        |
-| 10 | Cargo Insurance           | REVIEW | Coverage > $0    | None on file     | Not required but flagged|
-| 11 | Entity Network Clean      | N/A    | No flagged rels  | Not evaluated    | Requires entity_map    |
+Missing evidence: {none or explicit list}
+Next action: {owner plus action}
 ```
 
-Result codes:
+- **PASS** means the carrier met this named policy at this as-of time.
+- **REVIEW** means the policy or evidence requires a human decision.
+- **FAIL** means at least one rule failed under this named policy.
 
-| Result  | Meaning |
-|---------|---------|
-| PASS    | Carrier meets or exceeds the threshold for this rule |
-| REVIEW  | Carrier is near the threshold or data is ambiguous -- requires human judgment |
-| FAIL    | Carrier does not meet the mandatory threshold -- disqualifying |
-| N/A     | Rule could not be evaluated (missing data or tier restriction) |
+Never rewrite Review as Pass, and never present the legacy `risk_score` as an
+official rating or qualification.
 
-### Verdict Summary
+## Error handling
 
-After the rule table, summarize the disposition:
+- `invalid_policy`: list the missing keys and stop before API evaluation.
+- No named qualification: list available names and request an exact choice.
+- Missing evidence: follow the named rule behavior; absent data never silently passes.
+- `401`, `403`, `404`, `422`, `429`, timeout: preserve the error class and use
+  the recovery behavior in `API-DISCOVERY.md`.
 
-```
-SUMMARY
-  Total rules evaluated:  11
-  Passed:                 8
-  Review required:        2
-  Failed:                 0
-  Not evaluated:          1
+## Follow-up
 
-  Disposition: QUALIFIED WITH REVIEW
-  Review items: Vehicle OOS rate near threshold, No cargo insurance on file
-```
-
-Disposition mapping:
-
-| Condition | Disposition |
-|-----------|------------|
-| All PASS, no FAIL, no REVIEW | QUALIFIED |
-| No FAIL, 1+ REVIEW | QUALIFIED WITH REVIEW |
-| 1+ FAIL | NOT QUALIFIED |
-
-## Standard vs Strict Rulesets
-
-**Standard** (default): Industry-standard qualification thresholds used by most brokers.
-Matches the rule table shown above.
-
-**Strict**: Tighter thresholds for high-value or sensitive freight:
-
-| Rule | Standard Threshold | Strict Threshold |
-|------|-------------------|------------------|
-| BIPD Coverage | >= $750K | >= $1M |
-| Vehicle OOS | <= 25% | <= 15% |
-| Driver OOS | <= 10% | <= 5% |
-| Operating History | >= 12 months | >= 24 months |
-| Cargo Insurance | Flagged if absent | Required (FAIL if absent) |
-| Crash Record | 0 fatal (2yr) | 0 fatal + 0 injury (2yr) |
-
-## Custom Rules
-
-When `--rules custom` is used, the user provides a JSON or natural-language rules definition.
-Parse it into the rule evaluation format and pass it to the `vetting_check` tool as the
-`custom_rules` parameter.
-
-Example custom rule input:
-
-```json
-{
-  "rules": [
-    {"field": "power_units", "operator": "gte", "value": 10, "mandatory": true},
-    {"field": "safety_rating", "operator": "eq", "value": "SATISFACTORY", "mandatory": true},
-    {"field": "bipd_coverage", "operator": "gte", "value": 2000000, "mandatory": true}
-  ]
-}
-```
-
-If the user describes rules in natural language, translate them into the structured format
-before calling the tool.
-
-## Follow-Up Actions
-
-After displaying the vetting report, offer these next steps based on the verdict:
-
-- **PASS**: "Carrier is qualified. Proceed with onboarding or run `/sc-analyze {DOT}` for the full risk analyst report."
-- **REVIEW**: "Review items flagged above. Run `insurance_check` or `compliance_audit` for deeper analysis on specific concerns."
-- **FAIL**: "Carrier does not meet qualification criteria. Failing rules must be resolved before qualification. Run `/sc-risk {DOT}` to see the full risk score breakdown."
-
-## Error Handling
-
-- **Carrier not found (404)**: "No carrier found with DOT {dot_number}. Verify the number or use `/sc-lookup` to search."
-- **Tier insufficient (403)**: "Carrier vetting requires a Pro Plus subscription. Current tier does not include `vetting_check`. Upgrade at searchcarriers.com/pricing."
-- **Invalid custom rules**: "Could not parse custom rules. Provide rules as a JSON array or describe each rule with a field, operator, and threshold value."
-- **API timeout**: Retry once. On second failure: "Vetting check timed out for DOT {dot_number}. Try again shortly."
-- **API authentication (401)**: "API authentication failed. Check that SEARCHCARRIERS_API_KEY is set and valid."
-- **Partial evaluation**: If some rules return N/A due to missing data, display available results and note which rules could not be evaluated. The verdict should reflect only evaluated rules, with a caveat about incomplete assessment.
+Send Fail items to remediation, Review items to the named decision owner, and
+store the rule-level evidence snapshot with any final onboarding decision.

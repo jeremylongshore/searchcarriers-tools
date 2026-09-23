@@ -5,7 +5,7 @@ tools: Read, Grep, Bash
 disallowedTools: []
 model: inherit
 color: blue
-version: 0.2.0
+version: 0.3.0
 author: Jeremy Longshore
 tags: [searchcarriers, onboarding, setup]
 skills: []

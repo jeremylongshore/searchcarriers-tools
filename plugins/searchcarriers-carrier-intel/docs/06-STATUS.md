@@ -1,6 +1,6 @@
 # Carrier Intel — Status
 
-## Current state: 0.2.0 ready
+## Current state: 0.3.0 ready
 
 Carrier Intel is implemented and validated. Its four MCP tools use the current
 hybrid SearchCarriers contract: v3 search/company/equipment plus the documented
@@ -23,5 +23,6 @@ v1 SCAC and VIN routes.
 
 | Version | Date | Changes |
 |---|---|---|
+| 0.3.0 | 2026-09-23 | Pain-point skill rebuild, decision playbook, and behavioral eval specification |
 | 0.2.0 | 2026-09-22 | Current API routing, shared normalization, sanitized public release |
 | 0.1.0 | 2026-02-26 | Initial implementation |

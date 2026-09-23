@@ -1,89 +1,132 @@
 ---
 name: searchcarriers-tms-auto-sync
-description: Reconcile current carrier data into a TMS from a scheduled job or validated change event. Use when operating an audited carrier-data synchronization.
-allowed-tools: Read,Grep,Bash(python:*)
-metadata:
-  tier: enterprise
-version: 0.2.0
+description: "Analyzes carrier evidence for approved tms change application. Use when a user asks, \"Apply this approved SearchCarriers change set to\u2026\". Trigger with \"Apply this approved SearchCarriers\u2026\"."
+allowed-tools: Read, Bash(curl:*), Bash(python:*)
+argument-hint: '[DOT, docket, VIN, carrier list, or workflow input]'
+version: 0.3.0
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: Apache-2.0
-compatibility: Claude Code or another MCP-capable client; Python 3.10+; network access to searchcarriers.com; an appropriate SearchCarriers API subscription.
+compatibility: Designed for Claude Code and MCP-capable clients; requires Python 3.10+, network access to searchcarriers.com, and an eligible SearchCarriers plan.
+metadata:
+  tier: enterprise
 tags:
 - searchcarriers
 - motor-carrier
-- workflow
+- evidence
+- enterprise
 ---
 
-# TMS carrier reconciliation
+# Approved TMS Change Application
+
+Approved TMS Change Application helps an operator apply an approved carrier change set idempotently and prove the result. It solves this operational failure: Automated status writes can strand loads or overwrite local ownership fields when events are stale, duplicated, or incomplete.
 
 ## Overview
 
-> **API contract:** Use `API-DISCOVERY.md`. The public SearchCarriers API does
-> not expose the alert-feed route assumed by earlier versions of this workflow.
+The workflow is **identify → fetch → reconcile → decide → act**. API data is
+licensed research evidence, not an endorsement, official safety rating, or guarantee.
+Keep the human or named company policy as the decision owner.
 
-This workflow reconciles current SearchCarriers data into a transportation
-management system. Trigger it from an application-owned schedule or a validated
-external notification. It never treats `get_alerts` as a source of change
-events.
+The bounded result is: Return APPLIED, NOOP, CONFLICT, or ROLLED BACK per carrier.
 
 ## Prerequisites
 
-- Enterprise SearchCarriers subscription and valid API token
-- API Bridge MCP server
-- TMS credentials stored outside prompts, logs, and repository files
-- Approved field mapping, write allowlist, rollback method, and audit sink
-- Stable external event ID or scheduled-run ID for deduplication
+- Set `SEARCHCARRIERS_API_KEY` to a SearchCarriers bearer token with the required tier.
+- Confirm the subject identifier, intended movement or decision, and named policy when applicable.
+- Read [`API-DISCOVERY.md`](https://github.com/jeremylongshore/searchcarriers-tools/blob/main/API-DISCOVERY.md) with the `Read` tool before changing routes or parameters.
+- Use `Bash(curl:*)` for API requests and `Bash(python:*)` only for local JSON validation or deterministic reshaping.
+
+Authentication is `Authorization: Bearer $SEARCHCARRIERS_API_KEY`; never print,
+commit, or place the token in a URL. Do not commit live API responses.
 
 ## Instructions
 
-1. **Establish scope.** Accept a bounded list of DOT numbers from the scheduler
-   or validated event. Reject unbounded “sync everything” requests.
-2. **Read current data.** Call `bulk_lookup` with only the sections required by
-   the approved mapping. Preserve missing fields as missing.
-3. **Build a dry-run diff.** Call `tms_sync` in dry-run/export mode. Classify
-   changes into safe automatic updates and review-required changes.
-4. **Gate writes.** Require explicit application policy for status, authority,
-   insurance, safety, contact, and equipment fields. Never overwrite a curated
-   TMS value merely because upstream data is blank.
-5. **Apply idempotently.** Use the source event or run ID as the idempotency key.
-   Write in bounded batches and stop on authentication or schema failures.
-6. **Verify.** Read the affected TMS records back, compare allowed fields, and
-   record counts and identifiers without copying full carrier records into logs.
-7. **Report.** Separate `evaluated`, `changed`, `unchanged`, `review_required`,
-   and `failed` counts.
+### Step 1: Define the decision
 
-## Examples
+Write one sentence naming the subject, the operational use, the evidence window,
+and who owns the final decision. If a policy threshold is required, obtain the
+named policy instead of inventing an “industry standard.”
 
-```json
-{
-  "run_id": "tms-reconcile-2026-09-22T1800Z",
-  "dot_numbers": ["1234567", "7654321"],
-  "include": ["basics", "authorities", "insurances"],
-  "mode": "dry_run"
-}
+### Step 2: Resolve identity
+
+Prefer USDOT or docket identifiers. Treat name-only matches as ambiguous until
+legal name, location, and identifiers agree. Stop on conflicting identity.
+
+### Step 3: Fetch the smallest evidence set
+
+**Routes/tools:** API Bridge tms_sync; current SearchCarriers company/qualification evidence; local TMS adapter
+
+Start from an approved dry-run, reject stale or duplicate events, apply by DOT with idempotency key, reread the TMS record, and roll back on reconciliation failure.
+
+For a direct API request, use the documented route and selected fields:
+
+```bash
+curl --fail-with-body --get   "https://searchcarriers.com/api/v3/company/$DOT_NUMBER"   --header "Authorization: Bearer $SEARCHCARRIERS_API_KEY"   --header "Accept: application/json"   --data-urlencode "fields=contact,authorities,insurance,safety,operation,risk_factors"
 ```
 
-Review the diff before changing `mode` to the repository's supported write
-operation. A notification saying “carrier changed” is a trigger to re-read the
-current company record; it is not itself authoritative carrier data.
+Use the specialty v1 or qualification v2 route listed above when the job requires
+it; never rewrite every route to the highest version.
 
-## Error handling
+### Step 4: Reconcile evidence
 
-- `get_alerts` / `endpoint_unavailable`: use the scheduler or external event
-  source; do not infer that no changes occurred.
-- `401` or `403`: stop the batch and correct authorization.
-- `429`: honor `Retry-After`; retain the run ID and resume idempotently.
-- TMS write failure: stop subsequent writes when consistency is uncertain,
-  preserve the dry-run diff, and execute the approved rollback.
-- Missing source section: mark the affected field `review_required`; do not
-  clear the TMS value.
+Capture: Approval, event/as-of, idempotency key, before/after, protected fields, write result, reread result, and rollback receipt.
 
-## Resources
+Keep facts, policy tests, modeled indicators, and analyst judgment in separate
+fields. Preserve zeros; represent absent fields as `unknown` with a reason.
 
-- Current API contract: `API-DISCOVERY.md`
-- API Bridge skill: `searchcarriers-api-bridge`
-- TMS connector skill: `searchcarriers-tms-connector`
+### Step 5: Decide and prescribe the next action
+
+Return APPLIED, NOOP, CONFLICT, or ROLLED BACK per carrier.
+
+**Next action:** Resolve conflicts and rerun only failed idempotency keys.
 
 ## Output
 
-Return the requested result with the API route version, relevant carrier identifiers, evidence, missing-data limits, and the next operational action. Never include an API token or an unredacted bulk API response.
+Return this compact decision record:
+
+```yaml
+subject: "DOT or input identifier"
+purpose: "the exact operational question"
+status: "bounded status from this skill"
+evidence:
+  - fact: "observed value"
+    source: "API route or MCP tool"
+    as_of: "timestamp or source date"
+missing_evidence: []
+policy_or_method: "named policy, evidence-only, or disclosed model"
+next_action: "owner and concrete action"
+limitations: "coverage, freshness, and inference limits"
+```
+
+Every material claim needs a source and as-of value. Totals must reconcile to
+detail rows. The output must say whether any result is partial.
+
+## Examples
+
+**Should trigger:** “Apply this approved SearchCarriers change set to our TMS and verify rereads.”
+
+Produce the bounded record, show the decisive evidence and unknowns, and give one
+operational next action.
+
+**Should not trigger:** “Analyze inspection trends.”
+
+Route that request to the narrower SearchCarriers skill whose job matches it.
+
+## Error Handling
+
+| Condition | Required response |
+|---|---|
+| Identity conflict or multiple matches | Stop and return `REVIEW`; request a USDOT or docket. |
+| Missing field or empty data | No approval, stale source data, ambiguous identity, or reread mismatch prevents completion. |
+| `401` | Stop; report invalid/missing credentials without exposing them. |
+| `403` | Stop; identify the route and required plan/access. |
+| `404` | Recheck the identifier and route; do not treat it as adverse carrier evidence. |
+| `422` | Remove unsupported parameters and compare with the API contract. |
+| `429` | Honor `Retry-After`; use bounded retry and preserve progress. |
+| `5xx` or timeout | Retry with bounded backoff, then return partial/unavailable. |
+
+## Resources
+
+- [Decision playbook](references/playbook.md)
+- [Repository API contract](https://github.com/jeremylongshore/searchcarriers-tools/blob/main/API-DISCOVERY.md)
+- [SearchCarriers public API](https://searchcarriers.com/docs/api)
+- [SearchCarriers terms](https://searchcarriers.com/terms-of-service)

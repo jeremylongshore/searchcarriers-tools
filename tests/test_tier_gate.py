@@ -78,6 +78,8 @@ class TestCheckTier:
     def test_boundary_pro_cannot_access_proplus(self):
         with pytest.raises(TierError):
             check_tier("vetting_check", "pro")
+        with pytest.raises(TierError):
+            check_tier("qualification_reports", "pro")
 
     def test_boundary_proplus_cannot_access_smb(self):
         with pytest.raises(TierError):

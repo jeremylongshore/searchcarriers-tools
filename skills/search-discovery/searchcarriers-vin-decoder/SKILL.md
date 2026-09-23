@@ -1,247 +1,132 @@
 ---
 name: searchcarriers-vin-decoder
-description: Retrieves equipment details and cross-references companies operating the same VINs. Use when decoding VINs or investigating fleet equipment.
-allowed-tools: Read,Grep,Bash(curl:*),Bash(python:*)
-metadata:
-  tier: pro
-version: 0.2.0
+description: "Analyzes verified SearchCarriers evidence for fleet identity reconciler. Use when a user asks, \"Does VIN 1M8GDM9AXKP042788 match the carrier we\u2026\". Trigger with \"Does VIN 1M8GDM9AXKP042788 match\u2026\"."
+allowed-tools: Read, Bash(curl:*), Bash(python:*)
+argument-hint: '[DOT, docket, VIN, carrier list, or workflow input]'
+version: 0.3.0
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: Apache-2.0
-compatibility: Claude Code or another MCP-capable client; Python 3.10+; network access to searchcarriers.com; an appropriate SearchCarriers API subscription.
+compatibility: Designed for Claude Code and MCP-capable clients; requires Python 3.10+, network access to searchcarriers.com, and an eligible SearchCarriers plan.
+metadata:
+  tier: pro
 tags:
 - searchcarriers
 - motor-carrier
-- search-discovery
+- evidence
+- pro
 ---
 
-# VIN Decoder
+# Fleet Identity Reconciler
+
+Fleet Identity Reconciler helps an operator reconcile a VIN, the carrier claiming it, and the companies observed operating it. It solves this operational failure: A truck at pickup may not match the approved carrier, while leased or transferred equipment can create legitimate multi-carrier history.
 
 ## Overview
 
-> **API contract:** Use the repository `API-DISCOVERY.md` for the current v3/v2/v1 route map and verified parameter names. Do not infer newer-version routes.
+The workflow is **identify → fetch → reconcile → decide → act**. API data is
+licensed research evidence, not an endorsement, official safety rating, or guarantee.
+Keep the human or named company policy as the decision owner.
 
-Every commercial motor vehicle registered with FMCSA is tracked by VIN back to the carrier operating it. SearchCarriers provides two complementary views: equipment detail for a known carrier (what trucks does DOT X own?) and VIN-based carrier search (who operates this specific truck?). Combined, these let you build a complete picture of a vehicle's operational history, spot mismatched fleet data, identify leasing relationships, and flag equipment-related compliance risks.
+The bounded result is: Return MATCH, MISMATCH, MULTIPLE OBSERVED CARRIERS, or INSUFFICIENT EVIDENCE.
 
 ## Prerequisites
 
-- **Minimum tier**: Pro
-- **Environment variable**: `SEARCHCARRIERS_API_KEY` must be set in the shell environment
-- **Network access**: HTTPS to `searchcarriers.com`
-- **Context**: For equipment-by-DOT queries, the user must supply or you must first resolve a valid DOT number (use the carrier-lookup skill if needed)
+- Set `SEARCHCARRIERS_API_KEY` to a SearchCarriers bearer token with the required tier.
+- Confirm the subject identifier, intended movement or decision, and named policy when applicable.
+- Read [`API-DISCOVERY.md`](https://github.com/jeremylongshore/searchcarriers-tools/blob/main/API-DISCOVERY.md) with the `Read` tool before changing routes or parameters.
+- Use `Bash(curl:*)` for API requests and `Bash(python:*)` only for local JSON validation or deterministic reshaping.
+
+Authentication is `Authorization: Bearer $SEARCHCARRIERS_API_KEY`; never print,
+commit, or place the token in a URL. Do not commit live API responses.
 
 ## Instructions
 
-### 1. Detect Query Type
+### Step 1: Define the decision
 
-Classify the user's request into one of three patterns:
+Write one sentence naming the subject, the operational use, the evidence window,
+and who owns the final decision. If a policy threshold is required, obtain the
+named policy instead of inventing an “industry standard.”
 
-| User Signal | Query Type | Primary Endpoint |
-|---|---|---|
-| 17-character VIN string alone | VIN carrier search | `GET /search/by-vin/` |
-| DOT number + "equipment" / "fleet" / "trucks" | Equipment roster | `GET /company/{dot}/equipment` |
-| DOT number + "vehicles" | Vehicle list | `GET /company/{dot}/vehicles` |
-| VIN + "who operates" / "who else" | Cross-carrier VIN search | `GET /search/by-vin/` |
-| DOT + specific VIN | Equipment detail + cross-reference | Both endpoints |
+### Step 2: Resolve identity
 
-### 2. Retrieve Equipment Data by DOT
+Prefer USDOT or docket identifiers. Treat name-only matches as ambiguous until
+legal name, location, and identifiers agree. Stop on conflicting identity.
 
-To list all equipment registered to a carrier:
+### Step 3: Fetch the smallest evidence set
 
-```bash
-curl -s "https://searchcarriers.com/api/v3/company/{dot}/equipment" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
+**Routes/tools:** GET /api/v1/search/by-vin/{vin}; GET /api/v3/company/{dot}/equipment
 
-The response returns an array of equipment records. Each record contains:
+Normalize a 17-character VIN, resolve observed carriers, fetch the claimed carrier fleet, and compare exact VINs. Do not infer ownership from inspection operation.
 
-- `vin` -- 17-character vehicle identification number
-- `make` -- manufacturer (e.g., FREIGHTLINER, PETERBILT, VOLVO)
-- `model` -- model designation
-- `year` -- model year
-- `type` -- equipment classification (e.g., Truck Tractor, Straight Truck, Trailer)
-- `sub_type` -- specific sub-classification
-- `gvwr` -- gross vehicle weight rating in pounds
-
-### 3. Retrieve Vehicle Data by DOT
-
-For a streamlined vehicle view with registration details:
+For a direct API request, use the documented route and selected fields:
 
 ```bash
-curl -s "https://searchcarriers.com/api/v1/company/{dot}/vehicles" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
+curl --fail-with-body --get   "https://searchcarriers.com/api/v3/company/$DOT_NUMBER"   --header "Authorization: Bearer $SEARCHCARRIERS_API_KEY"   --header "Accept: application/json"   --data-urlencode "fields=contact,authorities,insurance,safety,operation,risk_factors"
 ```
 
-Vehicle records include:
+Use the specialty v1 or qualification v2 route listed above when the job requires
+it; never rewrite every route to the highest version.
 
-- `type` -- vehicle type
-- `vin` -- vehicle identification number
-- `license_plate_state` -- state of registration
-- `make` -- manufacturer
+### Step 4: Reconcile evidence
 
-### 4. Search Carriers by VIN
+Capture: VIN, claimed DOT, observed DOT records, equipment details, inspection dates where returned, and exact match/mismatch status.
 
-To find every carrier associated with a specific VIN:
+Keep facts, policy tests, modeled indicators, and analyst judgment in separate
+fields. Preserve zeros; represent absent fields as `unknown` with a reason.
 
-```bash
-curl -s "https://searchcarriers.com/api/v1/search/by-vin/{vin}" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
+### Step 5: Decide and prescribe the next action
 
-This returns carrier records (not equipment records). Each result is a full 143-field carrier object for a company that has reported operating this VIN.
+Return MATCH, MISMATCH, MULTIPLE OBSERVED CARRIERS, or INSUFFICIENT EVIDENCE.
 
-### 5. Format Equipment Results
-
-Present equipment rosters as a table:
-
-| VIN | Year | Make | Model | Type | GVWR |
-|---|---|---|---|---|---|
-| 1FUJGLDR8BSAX9472 | 2011 | FREIGHTLINER | CASCADIA | Truck Tractor | 52,000 |
-| 3AKJGLDR7DSBY1038 | 2013 | FREIGHTLINER | CASCADIA | Truck Tractor | 52,000 |
-
-Follow the table with a fleet summary:
-
-- **Total units**: count
-- **Average age**: calculated from current year minus model year
-- **Make distribution**: count per manufacturer
-- **Type breakdown**: truck tractors vs. straight trucks vs. trailers
-
-### 6. Interpret Equipment Data
-
-Apply these freight-industry interpretations:
-
-**Fleet age analysis**
-- Vehicles older than 10 years may indicate deferred capital expenditure or a small owner-operator fleet.
-- A mix of very new and very old equipment may indicate recent partial fleet replacement.
-
-**GVWR implications**
-- GVWR above 26,001 lbs requires a CDL driver. Flag if carrier reports CDL-exempt operations.
-- GVWR below 10,001 lbs typically indicates light-duty / last-mile equipment.
-
-**Type consistency**
-- A carrier authorized only for property transport should not have buses.
-- Trailer-only fleets with no power units may indicate an intermodal or brokerage operation.
-
-### 7. Cross-Reference Companies Sharing a VIN
-
-When multiple carriers appear for the same VIN, present them as a relationship table:
-
-| DOT | Legal Name | Status | State | Relationship Indicator |
-|---|---|---|---|---|
-| 12345 | Pacific Transport LLC | ACTIVE | TX | Current operator |
-| 67890 | Pacific Leasing Inc | ACTIVE | TX | Possible lessor (shared address) |
-| 11111 | Old Pacific Inc | INACTIVE | TX | Previous operator |
-
-Determine relationship indicators by comparing:
-- Physical address overlap (same street = likely related entities)
-- Shared company officers
-- One active / one inactive (suggests rebranding or succession)
-- DBA name matches
-
-### 8. Flag Equipment Risks
-
-Scan results and explicitly call out:
-
-- **VIN format errors**: VINs that are not exactly 17 characters or contain invalid characters (I, O, Q)
-- **Ghost fleet**: Carrier reports N power units to FMCSA but equipment endpoint returns significantly fewer (or zero)
-- **Age outliers**: Vehicles with model year 15+ years ago in an otherwise modern fleet
-- **GVWR/authority mismatch**: Equipment weight class inconsistent with carrier operation type
-- **Multi-carrier VIN without leasing context**: Same VIN on two active carriers with no apparent business relationship may indicate data errors or unauthorized operation
-
-## Examples
-
-### Example 1: Decode a VIN
-
-**User**: "Decode VIN 1HGBH41JXMN109186"
-
-```bash
-curl -s "https://searchcarriers.com/api/v1/search/by-vin/1HGBH41JXMN109186" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
-
-Present each carrier operating this VIN with an abbreviated carrier summary (legal name, DOT, status, state, fleet size). If only one carrier is found, provide full detail. If multiple, present the cross-reference table and note potential relationships.
-
-### Example 2: Equipment Roster for a DOT
-
-**User**: "What equipment does DOT 12345 have?"
-
-```bash
-curl -s "https://searchcarriers.com/api/v3/company/12345/equipment" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
-
-Render the equipment table, fleet summary, and age analysis. Flag any risk indicators.
-
-### Example 3: Who Else Operates This VIN
-
-**User**: "Who else operates VIN 3AKJGLDR7DSBY1038?"
-
-```bash
-curl -s "https://searchcarriers.com/api/v1/search/by-vin/3AKJGLDR7DSBY1038" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
-
-Build the cross-carrier relationship table. Compare addresses, officers, and operational status to classify relationships (lessor, predecessor, sibling entity, or unrelated).
-
-### Example 4: Combined Equipment + Vehicle View
-
-**User**: "Show me everything about DOT 12345's fleet"
-
-Run both calls:
-
-```bash
-curl -s "https://searchcarriers.com/api/v3/company/12345/equipment" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
-
-```bash
-curl -s "https://searchcarriers.com/api/v1/company/12345/vehicles" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
-
-Merge the data: equipment provides make/model/year/GVWR; vehicles provides license plate state. Present a unified table and fleet analysis.
-
-### Example 5: Lease Relationship Investigation
-
-**User**: "Is VIN 1FUJGLDR8BSAX9472 leased?"
-
-```bash
-curl -s "https://searchcarriers.com/api/v1/search/by-vin/1FUJGLDR8BSAX9472" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
-
-If multiple carriers share the VIN, compare their entity types and addresses. A pattern of one company being a leasing/rental entity (often identifiable by name or large fleet size with no operating authority) and another being an operating carrier strongly suggests a lease arrangement.
+**Next action:** For a mismatch, stop tendering and verify truck, trailer, plate, driver, and dispatch through the original trusted contact.
 
 ## Output
 
-Return the requested result with the API route version, relevant carrier identifiers, evidence, missing-data limits, and the next operational action. Never include an API token or an unredacted bulk API response.
+Return this compact decision record:
+
+```yaml
+subject: "DOT or input identifier"
+purpose: "the exact operational question"
+status: "bounded status from this skill"
+evidence:
+  - fact: "observed value"
+    source: "API route or MCP tool"
+    as_of: "timestamp or source date"
+missing_evidence: []
+policy_or_method: "named policy, evidence-only, or disclosed model"
+next_action: "owner and concrete action"
+limitations: "coverage, freshness, and inference limits"
+```
+
+Every material claim needs a source and as-of value. Totals must reconcile to
+detail rows. The output must say whether any result is partial.
+
+## Examples
+
+**Should trigger:** “Does VIN 1M8GDM9AXKP042788 match the carrier we approved?”
+
+Produce the bounded record, show the decisive evidence and unknowns, and give one
+operational next action.
+
+**Should not trigger:** “Find carriers serving a lane.”
+
+Route that request to the narrower SearchCarriers skill whose job matches it.
 
 ## Error Handling
 
-| HTTP Status | Meaning | Action |
-|---|---|---|
-| 401 | Invalid or missing API key | Inform the user to check `SEARCHCARRIERS_API_KEY` |
-| 403 | Feature requires Pro tier | Inform the user that VIN decode and equipment endpoints require a Pro subscription |
-| 404 | DOT number not found or no equipment on file | Confirm the DOT is valid; carrier may have zero registered equipment |
-| 422 | Invalid VIN format or DOT format | VIN must be exactly 17 alphanumeric characters; DOT must be numeric |
-| 429 | Rate limit exceeded | Wait and retry; inform the user of the rate limit |
-| 500+ | Server error | Retry once; if persistent, report the issue |
-
-When the equipment endpoint returns an empty array for a valid DOT, this means the carrier has no equipment registered with FMCSA. This is notable -- report it as a finding rather than treating it as an error.
+| Condition | Required response |
+|---|---|
+| Identity conflict or multiple matches | Stop and return `REVIEW`; request a USDOT or docket. |
+| Missing field or empty data | A VIN with no result is unresolved; malformed VINs stop before the API call. |
+| `401` | Stop; report invalid/missing credentials without exposing them. |
+| `403` | Stop; identify the route and required plan/access. |
+| `404` | Recheck the identifier and route; do not treat it as adverse carrier evidence. |
+| `422` | Remove unsupported parameters and compare with the API contract. |
+| `429` | Honor `Retry-After`; use bounded retry and preserve progress. |
+| `5xx` or timeout | Retry with bounded backoff, then return partial/unavailable. |
 
 ## Resources
 
-- VIN structure reference: Positions 1-3 = World Manufacturer Identifier, 4-8 = Vehicle Descriptor, 9 = Check digit, 10 = Model year, 11 = Assembly plant, 12-17 = Sequential number
-- Common CMV manufacturers: FREIGHTLINER, PETERBILT, KENWORTH, VOLVO, INTERNATIONAL, MACK, WESTERN STAR
-- GVWR classes: Class 1 (0-6,000 lbs) through Class 8 (33,001+ lbs); Class 7-8 are heavy-duty CMVs
-- CDL threshold: 26,001 lbs GVWR or 10,001+ lbs for placarded hazmat
-- SearchCarriers API documentation: `https://searchcarriers.com/docs`
-- Carrier object field reference: `{baseDir}/docs/carrier-fields.md`
+- [Decision playbook](references/playbook.md)
+- [Repository API contract](https://github.com/jeremylongshore/searchcarriers-tools/blob/main/API-DISCOVERY.md)
+- [SearchCarriers public API](https://searchcarriers.com/docs/api)
+- [SearchCarriers terms](https://searchcarriers.com/terms-of-service)

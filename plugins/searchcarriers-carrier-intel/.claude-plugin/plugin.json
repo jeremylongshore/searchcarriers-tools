@@ -1,7 +1,7 @@
 {
   "name": "searchcarriers-carrier-intel",
   "description": "Carrier lookup, profile, entity mapping, and fleet summary from SearchCarriers 4M+ company database.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "mcp",
   "pipeline_stage": "input",
   "min_tier": "free",

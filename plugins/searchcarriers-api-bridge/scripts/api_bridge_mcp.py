@@ -55,7 +55,7 @@ from plugins.shared.tier_gate import TierError, check_tier  # noqa: E402
 API_BASE = API_V1_BASE
 SEARCH_BASE = API_V3_BASE
 REQUEST_TIMEOUT = 20.0  # seconds
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 BULK_BATCH_SIZE = 10
 BULK_MAX_DOT_NUMBERS = 100

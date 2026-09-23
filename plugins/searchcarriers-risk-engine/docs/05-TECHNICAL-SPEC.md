@@ -142,22 +142,30 @@ Computes a composite 0-100 risk score with weighted breakdown across four dimens
 
 **Min Tier:** Pro
 
+### qualification_reports
+
+Fetches `GET /api/v2/company/{dotNumber}/qualification-reports` and preserves
+the upstream personal/team qualification names, Pass/Review/Fail results, and
+evidence without applying local defaults.
+
+**Min Tier:** Pro+
+
 ### vetting_check
 
-Evaluates a carrier against configurable qualification rules. Returns PASS/REVIEW/FAIL.
+Evaluates a carrier against a complete caller-supplied policy. Returns
+PASS/REVIEW/FAIL and rejects missing policy keys before any API request.
 
 **Input:**
 ```json
 {
   "dot_number": "string (required) - Carrier's USDOT number",
-  "carrier_data": "object (optional) - Pre-fetched carrier data from carrier_profile",
-  "overrides": {
-    "min_bipd": "integer (optional) - Minimum BIPD coverage in dollars (default: 750000)",
-    "min_cargo": "integer (optional) - Minimum cargo insurance in dollars (default: 100000)",
-    "max_oos_rate": "number (optional) - Maximum vehicle OOS rate percent (default: 40)",
-    "max_driver_oos_rate": "number (optional) - Maximum driver OOS rate percent (default: 15)",
-    "min_authority_age_days": "integer (optional) - Minimum authority age in days (default: 90)",
-    "max_mcs150_age_months": "integer (optional) - Maximum MCS-150 filing age in months (default: 24)"
+  "rules": {
+    "operating_status": "string (required)",
+    "min_insurance_coverage": "number (required; caller policy)",
+    "max_oos_rate": "number (required; caller policy)",
+    "max_crash_rate_per_pu": "number (required; caller policy)",
+    "authority_active": "boolean (required)",
+    "mcs150_current": "boolean (required)"
   }
 }
 ```
@@ -530,6 +538,7 @@ Risk Engine uses the shared `plugins/shared/tier_gate.py` module. Tool tiers are
 # From plugins/shared/tier_gate.py
 TOOL_TIERS = {
     "risk_score": "pro",
+    "qualification_reports": "proplus",
     "vetting_check": "proplus",
     "insurance_check": "pro",
     "compliance_audit": "pro",
@@ -552,11 +561,13 @@ Test the scoring functions with known carrier data and expected outcomes:
 
 ### Unit Tests (vetting rules)
 
-- **All rules pass**: Werner-like carrier meets all defaults. Verdict: PASS.
+- **All rules pass**: A complete caller policy is satisfied. Verdict: PASS.
 - **One rule fails**: Cargo insurance below minimum. Verdict: FAIL.
 - **Review condition**: OOS rate between REVIEW and FAIL thresholds. Verdict: REVIEW.
-- **Custom overrides**: User sets min_cargo to $500K. Carrier with $250K cargo. Verdict: FAIL.
+- **Caller policy threshold**: Policy requires a value the carrier does not meet. Verdict: FAIL.
 - **Missing data**: No insurance records. VET-02 and VET-03 should FAIL.
+- **Missing policy**: Reject before any API call with `invalid_policy`.
+- **Named qualification**: Preserve the API v2 result and evidence unchanged.
 
 ### Integration Tests (pipeline)
 
@@ -619,7 +630,9 @@ export SEARCHCARRIERS_API_KEY="your_id|your_token"
 export SEARCHCARRIERS_TIER="pro"  # or "proplus" for vetting_check
 ```
 
-4. Restart Claude Code. The MCP server registers four tools: `risk_score`, `vetting_check`, `insurance_check`, `compliance_audit`.
+4. Restart Claude Code. The MCP server registers five tools: `risk_score`,
+   `qualification_reports`, `vetting_check`, `insurance_check`, and
+   `compliance_audit`.
 
 5. Verify:
 

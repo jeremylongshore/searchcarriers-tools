@@ -6,6 +6,7 @@ from plugins.shared.api_contract import (
     API_V1_BASE,
     API_V2_BASE,
     API_V3_BASE,
+    V3_SEARCH_FILTERS,
     company_fields,
     data_list,
     normalize_v3_company,
@@ -25,6 +26,37 @@ def test_v3_search_uses_current_parameter_names() -> None:
         "page": 1,
         "perPage": 1,
     }
+
+
+def test_v3_search_maps_advanced_filters_to_published_wire_names() -> None:
+    params = v3_search_params(
+        filters={
+            "min_power_units": 10,
+            "min_bipd_coverage": 1_000_000,
+            "cargo_insurance_present": True,
+            "include_equipment_types": ["VAN"],
+            "lane_origin_state": "AL",
+            "lane_destination_state": "TX",
+            "lane_destination_radius_miles": 75,
+        }
+    )
+    assert params == {
+        "page": 1,
+        "perPage": 10,
+        "minPowerUnits": 10,
+        "minBipdCoverage": 1_000_000,
+        "cargoInsurancePresent": True,
+        "includeEquipmentTypes[]": ["VAN"],
+        "laneOriginState": "AL",
+        "laneDestinationState": "TX",
+        "laneDestinationRadiusMiles": 75,
+    }
+    assert "lane_origin_state" in V3_SEARCH_FILTERS
+
+
+def test_v3_search_rejects_unknown_advanced_filter() -> None:
+    with pytest.raises(ValueError, match="Unsupported v3 search filter"):
+        v3_search_params(filters={"invented": True})
     assert v3_search_params("Acme", "name", state="tx", city="Dallas") == {
         "superSearchTerm": "Acme",
         "page": 1,

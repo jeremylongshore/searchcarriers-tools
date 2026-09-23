@@ -1,209 +1,132 @@
 ---
 name: searchcarriers-carrier-lookup
-description: Searches carriers by DOT, MC, name, VIN, or SCAC from 4M+ companies and returns formatted summaries. Use when looking up a motor carrier.
-allowed-tools: Read,Grep,Bash(curl:*),Bash(python:*)
-metadata:
-  tier: free
-version: 0.2.0
+description: "Analyzes verified SearchCarriers evidence for carrier candidate finder. Use when a user asks, \"Find dry-van carriers with at least 10 power units\u2026\". Trigger with \"Find dry-van carriers with at\u2026\"."
+allowed-tools: Read, Bash(curl:*), Bash(python:*)
+argument-hint: '[DOT, docket, VIN, carrier list, or workflow input]'
+version: 0.3.0
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 license: Apache-2.0
-compatibility: Claude Code or another MCP-capable client; Python 3.10+; network access to searchcarriers.com; an appropriate SearchCarriers API subscription.
+compatibility: Designed for Claude Code and MCP-capable clients; requires Python 3.10+, network access to searchcarriers.com, and an eligible SearchCarriers plan.
+metadata:
+  tier: free
 tags:
 - searchcarriers
 - motor-carrier
-- search-discovery
+- evidence
+- free
 ---
 
-# Carrier Lookup
+# Carrier Candidate Finder
+
+Carrier Candidate Finder helps an operator find a defensible carrier shortlist for a named company, identifier, geography, fleet need, insurance requirement, or lane. It solves this operational failure: A name-only search returns false matches, while a broad search returns candidates that cannot serve the load.
 
 ## Overview
 
-> **API contract:** Use the repository `API-DISCOVERY.md` for the current v3/v2/v1 route map and verified parameter names. Do not infer newer-version routes.
+The workflow is **identify → fetch → reconcile → decide → act**. API data is
+licensed research evidence, not an endorsement, official safety rating, or guarantee.
+Keep the human or named company policy as the decision owner.
 
-SearchCarriers exposes selectable v3 company sections spanning identity, contact information, fleet composition, operating authority, safety history, and cargo classifications. This skill teaches you how to detect a user's search intent, select the correct endpoint and parameters, execute the lookup, and distill the response into a concise due-diligence summary.
+The bounded result is: Return MATCH, POSSIBLE MATCH, or NO MATCH for identity; for sourcing return a ranked candidate list without calling it approved.
 
 ## Prerequisites
 
-- **Minimum tier**: Free
-- **Environment variable**: `SEARCHCARRIERS_API_KEY` must be set in the shell environment
-- **Network access**: HTTPS to `searchcarriers.com`
+- Set `SEARCHCARRIERS_API_KEY` to a SearchCarriers bearer token with the required tier.
+- Confirm the subject identifier, intended movement or decision, and named policy when applicable.
+- Read [`API-DISCOVERY.md`](https://github.com/jeremylongshore/searchcarriers-tools/blob/main/API-DISCOVERY.md) with the `Read` tool before changing routes or parameters.
+- Use `Bash(curl:*)` for API requests and `Bash(python:*)` only for local JSON validation or deterministic reshaping.
+
+Authentication is `Authorization: Bearer $SEARCHCARRIERS_API_KEY`; never print,
+commit, or place the token in a URL. Do not commit live API responses.
 
 ## Instructions
 
-### 1. Detect Search Intent
+### Step 1: Define the decision
 
-Parse the user's request and classify it into exactly one search type:
+Write one sentence naming the subject, the operational use, the evidence window,
+and who owns the final decision. If a policy threshold is required, obtain the
+named policy instead of inventing an “industry standard.”
 
-| User Signal | Search Type | Endpoint | Key Parameter |
-|---|---|---|---|
-| 7-digit number, "DOT" prefix | DOT lookup | `GET /search` | `dotNumber` |
-| "MC" followed by digits | MC lookup | `GET /search` | `docketNumber` |
-| Company name string | Name search | `GET /search` | `superSearchTerm` or `superSearchTerm` |
-| 17-character alphanumeric | VIN search | `GET /search` | `vin` |
-| 2-4 letter carrier code | SCAC lookup | `GET /search/scac` | `scac` |
-| State/city/zip mention | Location search | `GET /api/v3/search` | MCP inputs `state`/`city` map to `addressState`/`addressCity`; `zipCode` passes through |
+### Step 2: Resolve identity
 
-When a query combines multiple signals (e.g., "Find Pacific trucking in Texas"), use all applicable parameters together on a single call.
+Prefer USDOT or docket identifiers. Treat name-only matches as ambiguous until
+legal name, location, and identifiers agree. Stop on conflicting identity.
 
-If the input is ambiguous, prefer `superSearchTerm` as it searches across multiple fields.
+### Step 3: Fetch the smallest evidence set
 
-### 2. Build the API Call
+**Routes/tools:** GET /api/v3/search; GET /api/v1/search/scac; GET /api/v1/search/by-vin/{vin}
 
-Construct the curl command following this pattern:
+Use exact identifiers first. For sourcing, send only documented v3 filters such as minPowerUnits, minBipdCoverage, includeEquipmentTypes[], laneOriginState, laneDestinationState, and the independent lane radiuses.
+
+For a direct API request, use the documented route and selected fields:
 
 ```bash
-curl -s "https://searchcarriers.com/api/v3/search?<params>" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
+curl --fail-with-body --get   "https://searchcarriers.com/api/v3/company/$DOT_NUMBER"   --header "Authorization: Bearer $SEARCHCARRIERS_API_KEY"   --header "Accept: application/json"   --data-urlencode "fields=contact,authorities,insurance,safety,operation,risk_factors"
 ```
 
-For SCAC lookups use the dedicated endpoint:
+Use the specialty v1 or qualification v2 route listed above when the job requires
+it; never rewrite every route to the highest version.
 
-```bash
-curl -s "https://searchcarriers.com/api/v1/search/scac?scac=<CODE>" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
+### Step 4: Reconcile evidence
 
-**Parameter rules:**
-- URL-encode values that contain spaces or special characters.
-- Use `perPage` (default 25, max 100) and `page` for pagination.
-- Filter by `status=ACTIVE` when the user only wants operating carriers.
-- Filter by `carrierOperation` when the user specifies carrier type (e.g., `A` for authorized-for-hire, `B` for exempt-for-hire, `C` for private).
+Capture: DOT/docket identity, legal name, location, fleet facts, selected filters, pagination metadata, and an as-of timestamp.
 
-### 3. Format the Response
+Keep facts, policy tests, modeled indicators, and analyst judgment in separate
+fields. Preserve zeros; represent absent fields as `unknown` with a reason.
 
-Structure every carrier result into these sections. Omit a section only when every field in it is null or empty.
+### Step 5: Decide and prescribe the next action
 
-**Identity**
-- Legal name, DBA name(s), DOT number, MC/MX number, DUNS number
-- Entity type, operating status, out-of-service date (if any)
+Return MATCH, POSSIBLE MATCH, or NO MATCH for identity; for sourcing return a ranked candidate list without calling it approved.
 
-**Contact**
-- Physical address, mailing address, phone, email
-- Company officers (names and titles)
-
-**Fleet & Operations**
-- Total drivers, total power units, total fleet size
-- Carrier operation type, shipper/carrier/broker authority status
-- HM (hazmat) flag, passenger carrier flag
-
-**Safety**
-- Safety rating, rating date
-- Crash data (fatal, injury, towaway counts)
-- Inspection summary (vehicle and driver OOS rates)
-- Most recent snapshot date
-
-**Insurance**
-- BIPD (bodily injury / property damage) coverage and status
-- Bond/surety status
-- Cargo insurance on file
-
-**Cargo Types**
-- List all cargo classifications carried (general freight, household goods, metal/sheets/coils, motor vehicles, etc.)
-
-### 4. Highlight Red Flags
-
-After formatting, scan for and explicitly call out any of these conditions:
-
-- **Inactive or revoked status** -- carrier is not authorized to operate
-- **No insurance on file** or insurance below FMCSA minimums
-- **Conditional or Unsatisfactory safety rating**
-- **Out-of-service orders** (company, driver, or vehicle)
-- **High OOS inspection rates** (vehicle OOS > 25% or driver OOS > 10% are industry concern thresholds)
-- **Zero power units or zero drivers reported** with active authority
-- **Recent crashes** with fatalities
-
-Present red flags in a clearly separated block so they are impossible to miss.
-
-### 5. Multi-Result Handling
-
-When a search returns multiple carriers:
-
-1. State the total result count.
-2. Present the first 5 results as abbreviated summaries (legal name, DOT, MC, state, status, fleet size).
-3. Ask the user which carrier to expand, or offer to refine the search with additional filters.
-
-## Examples
-
-### Example 1: DOT Number Lookup
-
-**User**: "Look up DOT 12345"
-
-```bash
-curl -s "https://searchcarriers.com/api/v3/search?dotNumber=12345" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
-
-Format the single result into the full summary template. Flag any safety or insurance issues.
-
-### Example 2: Name + Location Search
-
-**User**: "Find carriers named Pacific in Texas"
-
-```bash
-curl -s "https://searchcarriers.com/api/v3/search?superSearchTerm=Pacific&addressState=TX&perPage=25" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
-
-Present abbreviated multi-result list. Offer to drill into a specific DOT.
-
-### Example 3: MC Number Lookup
-
-**User**: "What's MC 1672915?"
-
-```bash
-curl -s "https://searchcarriers.com/api/v3/search?docketNumber=1672915" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
-
-Format full summary. If the MC maps to multiple DOT numbers, present all of them.
-
-### Example 4: SCAC Lookup
-
-**User**: "Look up SCAC code HJBT"
-
-```bash
-curl -s "https://searchcarriers.com/api/v1/search/scac?scac=HJBT" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
-
-### Example 5: Active Carriers Only
-
-**User**: "Find active hazmat carriers in Ohio"
-
-```bash
-curl -s "https://searchcarriers.com/api/v3/search?addressState=OH&status=ACTIVE&perPage=50" \
-  -H "Authorization: Bearer $SEARCHCARRIERS_API_KEY" \
-  -H "Accept: application/json"
-```
-
-Post-filter results for carriers where the HM flag is true.
+**Next action:** Resolve ambiguous identities, open the selected carrier profile, then run authority, insurance, and policy qualification checks.
 
 ## Output
 
-Return the requested result with the API route version, relevant carrier identifiers, evidence, missing-data limits, and the next operational action. Never include an API token or an unredacted bulk API response.
+Return this compact decision record:
+
+```yaml
+subject: "DOT or input identifier"
+purpose: "the exact operational question"
+status: "bounded status from this skill"
+evidence:
+  - fact: "observed value"
+    source: "API route or MCP tool"
+    as_of: "timestamp or source date"
+missing_evidence: []
+policy_or_method: "named policy, evidence-only, or disclosed model"
+next_action: "owner and concrete action"
+limitations: "coverage, freshness, and inference limits"
+```
+
+Every material claim needs a source and as-of value. Totals must reconcile to
+detail rows. The output must say whether any result is partial.
+
+## Examples
+
+**Should trigger:** “Find dry-van carriers with at least 10 power units on an Alabama-to-Texas lane.”
+
+Produce the bounded record, show the decisive evidence and unknowns, and give one
+operational next action.
+
+**Should not trigger:** “Tell me whether this carrier has valid insurance.”
+
+Route that request to the narrower SearchCarriers skill whose job matches it.
 
 ## Error Handling
 
-| HTTP Status | Meaning | Action |
-|---|---|---|
-| 401 | Invalid or missing API key | Inform the user to check `SEARCHCARRIERS_API_KEY` |
-| 404 | No carrier found for the given identifier | Tell the user no matching carrier exists; suggest alternate search terms |
-| 422 | Invalid parameter format | Check parameter types (DOT must be numeric, SCAC must be 2-4 alpha) |
-| 429 | Rate limit exceeded | Wait and retry; inform the user of the rate limit |
-| 500+ | Server error | Retry once; if persistent, report the issue |
-
-When the API returns an empty result set with a 200 status, explicitly state that no carriers matched rather than presenting an empty table.
+| Condition | Required response |
+|---|---|
+| Identity conflict or multiple matches | Stop and return `REVIEW`; request a USDOT or docket. |
+| Missing field or empty data | An empty page means no candidates under those filters. A missing field is unknown, never false or zero. |
+| `401` | Stop; report invalid/missing credentials without exposing them. |
+| `403` | Stop; identify the route and required plan/access. |
+| `404` | Recheck the identifier and route; do not treat it as adverse carrier evidence. |
+| `422` | Remove unsupported parameters and compare with the API contract. |
+| `429` | Honor `Retry-After`; use bounded retry and preserve progress. |
+| `5xx` or timeout | Retry with bounded backoff, then return partial/unavailable. |
 
 ## Resources
 
-- SearchCarriers API documentation: `https://searchcarriers.com/docs`
-- FMCSA carrier operation codes: A = Authorized For Hire, B = Exempt For Hire, C = Private (Property), D = Private (Passengers), E = Private (Enterprise)
-- FMCSA safety rating definitions: Satisfactory, Conditional, Unsatisfactory, Not Rated
-- OOS rate benchmarks: National average vehicle OOS ~20%, driver OOS ~5%
-- Carrier object field reference: `{baseDir}/docs/carrier-fields.md`
+- [Decision playbook](references/playbook.md)
+- [Repository API contract](https://github.com/jeremylongshore/searchcarriers-tools/blob/main/API-DISCOVERY.md)
+- [SearchCarriers public API](https://searchcarriers.com/docs/api)
+- [SearchCarriers terms](https://searchcarriers.com/terms-of-service)
